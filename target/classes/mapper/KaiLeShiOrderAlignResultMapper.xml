@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.example.orderalign.mapper.KaiLeShiOrderAlignResultMapper">
+    <resultMap id="BaseResultMap" type="com.example.orderalign.model.KaiLeShiOrderAlignResult">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="kdt_id" property="kdtId" jdbcType="BIGINT"/>
+        <result column="app_id" property="appId" jdbcType="VARCHAR"/>
+        <result column="tid" property="tid" jdbcType="VARCHAR"/>
+        <result column="out_tid" property="outTid" jdbcType="VARCHAR"/>
+
+        <result column="yz_create_time" property="yzCreateTime" jdbcType="VARCHAR"/>
+        <result column="out_create_time" property="outCreateTime" jdbcType="VARCHAR"/>
+        <result column="create_time_result" property="createTimeResult" jdbcType="VARCHAR"/>
+
+        <result column="yz_pay_time" property="yzPayTime" jdbcType="VARCHAR"/>
+        <result column="out_pay_time" property="outPayTime" jdbcType="VARCHAR"/>
+        <result column="pay_time_result" property="payTimeResult" jdbcType="VARCHAR"/>
+
+        <result column="node_kdt_id" property="nodeKdtId" jdbcType="BIGINT"/>
+        <result column="yz_shop_no" property="yzShopNo" jdbcType="VARCHAR"/>
+        <result column="out_shop_no" property="outShopNo" jdbcType="VARCHAR"/>
+        <result column="shop_result" property="shopResult" jdbcType="VARCHAR"/>
+
+        <result column="yz_total_amount" property="yzTotalAmount" jdbcType="BIGINT"/>
+        <result column="out_total_amount" property="outTotalAmount" jdbcType="BIGINT"/>
+        <result column="total_amount_result" property="totalAmountResult" jdbcType="VARCHAR"/>
+
+        <result column="yz_discount_amount" property="yzDiscountAmount" jdbcType="BIGINT"/>
+        <result column="out_discount_amount" property="outDiscountAmount" jdbcType="BIGINT"/>
+        <result column="discount_amount_result" property="discountAmountResult" jdbcType="VARCHAR"/>
+
+        <result column="yz_payment" property="yzPayment" jdbcType="BIGINT"/>
+        <result column="out_payment" property="outPayment" jdbcType="BIGINT"/>
+        <result column="payment_result" property="paymentResult" jdbcType="VARCHAR"/>
+
+        <result column="yz_member_id" property="yzMemberId" jdbcType="VARCHAR"/>
+        <result column="out_open_id" property="outOpenId" jdbcType="VARCHAR"/>
+        <result column="out_member_id" property="outMemberId" jdbcType="VARCHAR"/>
+        <result column="customer_no" property="customerNo" jdbcType="VARCHAR"/>
+        <result column="member_id_result" property="memberIdResult" jdbcType="VARCHAR"/>
+
+        <result column="yz_channel" property="yzChannel" jdbcType="VARCHAR"/>
+        <result column="out_channel" property="outChannel" jdbcType="VARCHAR"/>
+        <result column="channel_result" property="channelResult" jdbcType="VARCHAR"/>
+
+        <result column="is_mock_item_id" property="isMockItemId" jdbcType="VARCHAR"/>
+        <result column="sub_order_result" property="subOrderResult" jdbcType="VARCHAR"/>
+        <result column="sub_order_fail_reason" property="subOrderFailReason" jdbcType="LONGVARCHAR"/>
+
+        <result column="yz_guide_no_list" property="yzGuideNoList" jdbcType="VARCHAR"/>
+        <result column="out_guide_no_list" property="outGuideNoList" jdbcType="VARCHAR"/>
+        <result column="item_guide_result" property="itemGuideResult" jdbcType="VARCHAR"/>
+        
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+        <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, kdt_id, app_id, tid, out_tid, 
+        yz_create_time, out_create_time, create_time_result,
+        yz_pay_time, out_pay_time, pay_time_result,
+        node_kdt_id, yz_shop_no, out_shop_no, shop_result,
+        yz_total_amount, out_total_amount, total_amount_result,
+        yz_discount_amount, out_discount_amount, discount_amount_result,
+        yz_payment, out_payment, payment_result, 
+        yz_member_id, out_open_id, out_member_id, customer_no, member_id_result,
+        yz_channel, out_channel, channel_result, 
+        is_mock_item_id, sub_order_result, sub_order_fail_reason,
+        yz_guide_no_list, out_guide_no_list, item_guide_result, 
+        created_at, updated_at
+    </sql>
+
+    <insert id="insert" parameterType="com.example.orderalign.model.KaiLeShiOrderAlignResult">
+        insert into kaileshi_order_align_result (kdt_id, app_id, tid, out_tid, 
+        yz_create_time, out_create_time, create_time_result,
+        yz_pay_time, out_pay_time, pay_time_result,
+        node_kdt_id, yz_shop_no, out_shop_no, shop_result,
+        yz_total_amount, out_total_amount, total_amount_result,
+        yz_discount_amount, out_discount_amount, discount_amount_result,
+        yz_payment, out_payment, payment_result, 
+        yz_member_id, out_open_id, out_member_id, customer_no, member_id_result,
+        yz_channel, out_channel, channel_result, 
+        is_mock_item_id, sub_order_result, sub_order_fail_reason,
+        yz_guide_no_list, out_guide_no_list, item_guide_result, 
+        created_at, updated_at)
+        values (#{kdtId,jdbcType=BIGINT}, #{appId,jdbcType=VARCHAR}, #{tid,jdbcType=VARCHAR}, #{outTid,jdbcType=VARCHAR},
+        #{yzCreateTime,jdbcType=VARCHAR}, #{outCreateTime,jdbcType=VARCHAR}, #{createTimeResult,jdbcType=VARCHAR},
+        #{yzPayTime,jdbcType=VARCHAR}, #{outPayTime,jdbcType=VARCHAR}, #{payTimeResult,jdbcType=VARCHAR},
+        #{nodeKdtId,jdbcType=BIGINT}, #{yzShopNo,jdbcType=VARCHAR}, #{outShopNo,jdbcType=VARCHAR}, #{shopResult,jdbcType=VARCHAR},
+        #{yzTotalAmount,jdbcType=BIGINT}, #{outTotalAmount,jdbcType=BIGINT}, #{totalAmountResult,jdbcType=VARCHAR},
+        #{yzDiscountAmount,jdbcType=BIGINT}, #{outDiscountAmount,jdbcType=BIGINT}, #{discountAmountResult,jdbcType=VARCHAR},
+        #{yzPayment,jdbcType=BIGINT}, #{outPayment,jdbcType=BIGINT}, #{paymentResult,jdbcType=VARCHAR},
+        #{yzMemberId,jdbcType=VARCHAR}, #{outOpenId,jdbcType=VARCHAR}, #{outMemberId,jdbcType=VARCHAR}, #{customerNo,jdbcType=VARCHAR}, #{memberIdResult,jdbcType=VARCHAR},
+        #{yzChannel,jdbcType=VARCHAR}, #{outChannel,jdbcType=VARCHAR}, #{channelResult,jdbcType=VARCHAR},
+        #{isMockItemId,jdbcType=VARCHAR}, #{subOrderResult,jdbcType=VARCHAR}, #{subOrderFailReason,jdbcType=LONGVARCHAR},
+        #{yzGuideNoList,jdbcType=VARCHAR}, #{outGuideNoList,jdbcType=VARCHAR}, #{itemGuideResult,jdbcType=VARCHAR},
+        now(), now())
+    </insert>
+
+    <select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.Long">
+        select
+        <include refid="Base_Column_List"/>
+        from kaileshi_order_align_result
+        where id = #{id,jdbcType=BIGINT}
+    </select>
+
+    <update id="updateByPrimaryKeySelective" parameterType="com.example.orderalign.model.KaiLeShiOrderAlignResult">
+        update kaileshi_order_align_result
+        <set>
+            <if test="kdtId != null">kdt_id = #{kdtId,jdbcType=BIGINT},</if>
+            <if test="appId != null">app_id = #{appId,jdbcType=VARCHAR},</if>
+            <if test="tid != null">tid = #{tid,jdbcType=VARCHAR},</if>
+            <if test="outTid != null">out_tid = #{outTid,jdbcType=VARCHAR},</if>
+            <if test="yzCreateTime != null">yz_create_time = #{yzCreateTime,jdbcType=VARCHAR},</if>
+            <if test="outCreateTime != null">out_create_time = #{outCreateTime,jdbcType=VARCHAR},</if>
+            <if test="createTimeResult != null">create_time_result = #{createTimeResult,jdbcType=VARCHAR},</if>
+            <if test="yzPayTime != null">yz_pay_time = #{yzPayTime,jdbcType=VARCHAR},</if>
+            <if test="outPayTime != null">out_pay_time = #{outPayTime,jdbcType=VARCHAR},</if>
+            <if test="payTimeResult != null">pay_time_result = #{payTimeResult,jdbcType=VARCHAR},</if>
+            <if test="nodeKdtId != null">node_kdt_id = #{nodeKdtId,jdbcType=BIGINT},</if>
+            <if test="yzShopNo != null">yz_shop_no = #{yzShopNo,jdbcType=VARCHAR},</if>
+            <if test="outShopNo != null">out_shop_no = #{outShopNo,jdbcType=VARCHAR},</if>
+            <if test="shopResult != null">shop_result = #{shopResult,jdbcType=VARCHAR},</if>
+            <if test="yzTotalAmount != null">yz_total_amount = #{yzTotalAmount,jdbcType=BIGINT},</if>
+            <if test="outTotalAmount != null">out_total_amount = #{outTotalAmount,jdbcType=BIGINT},</if>
+            <if test="totalAmountResult != null">total_amount_result = #{totalAmountResult,jdbcType=VARCHAR},</if>
+            <if test="yzDiscountAmount != null">yz_discount_amount = #{yzDiscountAmount,jdbcType=BIGINT},</if>
+            <if test="outDiscountAmount != null">out_discount_amount = #{outDiscountAmount,jdbcType=BIGINT},</if>
+            <if test="discountAmountResult != null">discount_amount_result = #{discountAmountResult,jdbcType=VARCHAR},</if>
+            <if test="yzPayment != null">yz_payment = #{yzPayment,jdbcType=BIGINT},</if>
+            <if test="outPayment != null">out_payment = #{outPayment,jdbcType=BIGINT},</if>
+            <if test="paymentResult != null">payment_result = #{paymentResult,jdbcType=VARCHAR},</if>
+            <if test="yzMemberId != null">yz_member_id = #{yzMemberId,jdbcType=VARCHAR},</if>
+            <if test="outOpenId != null">out_open_id = #{outOpenId,jdbcType=VARCHAR},</if>
+            <if test="outMemberId != null">out_member_id = #{outMemberId,jdbcType=VARCHAR},</if>
+            <if test="customerNo != null">customer_no = #{customerNo,jdbcType=VARCHAR},</if>
+            <if test="memberIdResult != null">member_id_result = #{memberIdResult,jdbcType=VARCHAR},</if>
+            <if test="yzChannel != null">yz_channel = #{yzChannel,jdbcType=VARCHAR},</if>
+            <if test="outChannel != null">out_channel = #{outChannel,jdbcType=VARCHAR},</if>
+            <if test="channelResult != null">channel_result = #{channelResult,jdbcType=VARCHAR},</if>
+            <if test="isMockItemId != null">is_mock_item_id = #{isMockItemId,jdbcType=VARCHAR},</if>
+            <if test="subOrderResult != null">sub_order_result = #{subOrderResult,jdbcType=VARCHAR},</if>
+            <if test="subOrderFailReason != null">sub_order_fail_reason = #{subOrderFailReason,jdbcType=LONGVARCHAR},</if>
+            <if test="yzGuideNoList != null">yz_guide_no_list = #{yzGuideNoList,jdbcType=VARCHAR},</if>
+            <if test="outGuideNoList != null">out_guide_no_list = #{outGuideNoList,jdbcType=VARCHAR},</if>
+            <if test="itemGuideResult != null">item_guide_result = #{itemGuideResult,jdbcType=VARCHAR},</if>
+            updated_at = now()
+        </set>
+        where id = #{id,jdbcType=BIGINT}
+    </update>
+
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.Long">
+        delete from kaileshi_order_align_result
+        where id = #{id,jdbcType=BIGINT}
+    </delete>
+
+    <select id="selectByTid" resultMap="BaseResultMap" parameterType="java.lang.String">
+        select
+        <include refid="Base_Column_List"/>
+        from kaileshi_order_align_result
+        where tid = #{tid,jdbcType=VARCHAR}
+    </select>
+
+</mapper>

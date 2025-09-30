@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.example.orderalign.mapper.ThirdPartyOrderDetailMapper">
+    <resultMap id="BaseResultMap" type="com.example.orderalign.model.ThirdPartyOrderDetail">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="kdt_id" property="kdtId" jdbcType="BIGINT"/>
+        <result column="app_id" property="appId" jdbcType="VARCHAR"/>
+        <result column="out_tid" property="outTid" jdbcType="VARCHAR"/>
+        <result column="out_tid_detail" property="outTidDetail" jdbcType="LONGVARCHAR"/>
+        <result column="status" property="status" jdbcType="INTEGER"/>
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+        <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, kdt_id, app_id, out_tid, out_tid_detail, status, created_at, updated_at
+    </sql>
+
+    <insert id="insert" parameterType="com.example.orderalign.model.ThirdPartyOrderDetail">
+        insert into third_party_order_detail (kdt_id, app_id, out_tid, out_tid_detail, status, created_at, updated_at)
+        values (#{kdtId,jdbcType=BIGINT}, #{appId,jdbcType=VARCHAR}, #{outTid,jdbcType=VARCHAR}, #{outTidDetail,jdbcType=LONGVARCHAR}, #{status,jdbcType=INTEGER}, now(), now())
+    </insert>
+
+    <select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.Long">
+        select
+        <include refid="Base_Column_List"/>
+        from third_party_order_detail
+        where id = #{id,jdbcType=BIGINT}
+    </select>
+
+    <update id="updateByPrimaryKeySelective" parameterType="com.example.orderalign.model.ThirdPartyOrderDetail">
+        update third_party_order_detail
+        <set>
+            <if test="kdtId != null">
+                kdt_id = #{kdtId,jdbcType=BIGINT},
+            </if>
+            <if test="appId != null">
+                app_id = #{appId,jdbcType=VARCHAR},
+            </if>
+            <if test="outTid != null">
+                out_tid = #{outTid,jdbcType=VARCHAR},
+            </if>
+            <if test="outTidDetail != null">
+                out_tid_detail = #{outTidDetail,jdbcType=LONGVARCHAR},
+            </if>
+            <if test="status != null">
+                status = #{status,jdbcType=INTEGER},
+            </if>
+            updated_at = now()
+        </set>
+        where id = #{id,jdbcType=BIGINT}
+    </update>
+
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.Long">
+        delete from third_party_order_detail
+        where id = #{id,jdbcType=BIGINT}
+    </delete>
+
+    <select id="selectByOutTid" resultMap="BaseResultMap" parameterType="java.lang.String">
+        select
+        <include refid="Base_Column_List"/>
+        from third_party_order_detail
+        where out_tid = #{outTid,jdbcType=VARCHAR}
+    </select>
+
+</mapper>
