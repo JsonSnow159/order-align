@@ -1,6 +1,7 @@
 package com.example.orderalign.mapper;
 
 import com.example.orderalign.model.KaiLeShiOrderAlign;
+import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
@@ -9,6 +10,7 @@ import java.util.List;
  * @author jincai.wu
  * @date 2025/9/18
  */
+@Mapper
 public interface KaiLeShiOrderAlignMapper {
 
     /**

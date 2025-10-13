@@ -1,6 +1,5 @@
 package com.example.orderalign.dto.kylin;
 
-import com.youzan.cloud.youzanyun.connector.kylin.kaileshi.dto.KaileshiBaseResponseDTO;
 import lombok.Data;
 
 import java.util.List;

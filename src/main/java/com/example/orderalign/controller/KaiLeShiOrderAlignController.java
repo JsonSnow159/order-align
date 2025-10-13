@@ -1,6 +1,7 @@
 package com.example.orderalign.controller;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.example.orderalign.dto.OrderAlignDTO;
 import com.example.orderalign.dto.OutOrderDetail;
@@ -19,16 +20,21 @@ import com.example.orderalign.model.ThirdPartyOrderDetail;
 import com.example.orderalign.model.YouzanOrderDetail;
 import com.example.orderalign.utils.KaileshiUtil;
 import com.example.orderalign.utils.SignUtil;
+import com.example.orderalign.mapper.KaiLeShiOrderRefundAlignMapper;
+import com.example.orderalign.model.KaiLeShiOrderRefundAlign;
 import com.youzan.cloud.connector.sdk.client.YzCloudResponse;
 import com.youzan.cloud.connector.sdk.common.exception.RecoverableException;
 import com.youzan.cloud.connector.sdk.common.exception.UnrecoverableException;
 import com.youzan.cloud.connector.sdk.common.utils.DateFormatUtil;
 import com.youzan.cloud.connector.sdk.common.utils.MoneyUtil;
-import com.youzan.cloud.connector.sdk.component.basic.redis.RedisCacheClient;
+
+
 import com.youzan.cloud.connector.sdk.infra.dal.entity.OrderRelationDO;
 import com.youzan.cloud.connector.sdk.infra.dal.entity.ShopRelationDO;
+import com.youzan.cloud.connector.sdk.infra.dal.entity.ShoppingGuideRelationDO;
 import com.youzan.cloud.connector.sdk.infra.dal.entity.UserRelationDO;
 import com.youzan.cloud.connector.sdk.infra.dal.mapper.InfraOrderRelationMapper;
+import com.youzan.cloud.connector.sdk.infra.dal.mapper.InfraShoppingGuideRelationMapper;
 import com.youzan.cloud.connector.sdk.infra.dal.mapper.InfraUserRelationMapper;
 import com.youzan.cloud.connector.sdk.infra.dal.mapper.ShopRelationMapper;
 import com.youzan.cloud.open.sdk.gen.v4_0_1.model.YouzanTradeGetResult;
@@ -62,6 +68,8 @@ public class KaiLeShiOrderAlignController {
     @Resource
     private KaiLeShiOrderAlignMapper kaiLeShiOrderAlignMapper;
     @Resource
+    private KaiLeShiOrderRefundAlignMapper kaiLeShiOrderRefundAlignMapper;
+    @Resource
     private InfraOrderRelationMapper infraOrderRelationMapper;
     @Resource
     private YouzanOrderDetailMapper youzanOrderDetailMapper;
@@ -74,7 +82,8 @@ public class KaiLeShiOrderAlignController {
     @Resource
     private ShopRelationMapper shopRelationMapper;
     @Resource
-    private RedisCacheClient redisCacheClient;
+    private InfraShoppingGuideRelationMapper infraShoppingGuideRelationMapper;
+    private static final String ITEM_API_URL = "https://api-ekailas.kylin.shuyun.com/omni-api/v1/youzan/member/product/list";
     @Resource
     private RedissonClient redissonClient;
     private static final String API_URL = "https://api-ekailas.kylin.shuyun.com/omni-api/v1/youzan/member/order/page";
@@ -112,13 +121,25 @@ public class KaiLeShiOrderAlignController {
     private static final int STATUS_FOUND = 1;
     private static final int STATUS_NOT_FOUND = 4;
     private static final int STATUS_DETAIL_QUERIED = 3;
-    private static final int STATUS_ALIGNED = 5;
+    private static final int STATUS_OUT_DETAIL_QUERIED = 5;
+    private static final int STATUS_ALIGNED = 6;
     private static final int BATCH_SIZE = 100;
 
     private static final int DETAIL_STATUS_QUERIED = 1;
     private static final int DETAIL_STATUS_YZ_FAIL = 3;
     private static final int DETAIL_STATUS_OUT_FAIL = 4;
 
+    /**
+     * 执行顺序
+     * 2张表，订单映射、退单映射
+     * 1、先上传数云订单号
+     * 2、查询数云的订单详情，存起来；
+     * 3、判断具体订单类型，查询映射表，获取订单映射，订单映射区分一下订单映射
+     * 4、
+     *
+     * @param param
+     * @return
+     */
     @PostMapping("/uploadOrder")
     public YzCloudResponse<Object> uploadOrder(@RequestBody OrderAlignDTO param) {
         log.info("凯乐石订单对齐param:{}", param);
@@ -166,63 +187,15 @@ public class KaiLeShiOrderAlignController {
         return YzCloudResponse.success();
     }
 
+    /**
+     * 初始化三方订单详情，以及orderRelation 和 refundRelation
+     *
+     * @param param
+     * @return
+     */
     @SneakyThrows
-    @PostMapping("/queryTid")
-    public YzCloudResponse<Object> queryTid(@RequestBody OrderAlignDTO param) {
-        log.info("开始查询订单Tid,appId:{}", param.getAppId());
-        String lockKey = String.format("queryTid_%s", param.getAppId());
-        RLock lock = redissonClient.getLock(lockKey);
-        boolean isLock = lock.tryLock(1, 5, TimeUnit.MINUTES);
-        if (!isLock) {
-            log.warn("获取锁失败,appId:{},订单映射对齐正在处理中,lockKey: {}", param.getAppId(), lockKey);
-            throw new UnrecoverableException("获取锁失败");
-        }
-
-        try {
-            String appId = param.getAppId();
-            List<KaiLeShiOrderAlign> pendingOrders = kaiLeShiOrderAlignMapper.selectByStatusWithLimit(appId, STATUS_PENDING, BATCH_SIZE);
-            if (CollectionUtils.isEmpty(pendingOrders)) {
-                log.info("没有需要处理的订单");
-                return YzCloudResponse.success();
-            }
-
-            log.info("本批次处理订单数量: {}", pendingOrders.size());
-
-            List<CompletableFuture<Void>> futures = pendingOrders.stream()
-                    .map(orderAlign -> CompletableFuture.runAsync(() -> {
-                        try {
-                            //TODO 加个兜底，如果映射表查不到，从接口查一下
-                            OrderRelationDO orderRelation = infraOrderRelationMapper.getOne(orderAlign.getAppId(), null, orderAlign.getOutTid());
-
-                            if (Objects.nonNull(orderRelation) && StringUtils.isNotBlank(orderRelation.getTid())) {
-                                orderAlign.setStatus(STATUS_FOUND); // Found
-                                orderAlign.setTid(orderRelation.getTid());
-                                log.info("outTid: {} 找到 tid: {}", orderAlign.getOutTid(), orderRelation.getTid());
-                            } else {
-                                orderAlign.setStatus(2); // Not found
-                                log.warn("outTid: {} 未找到 tid", orderAlign.getOutTid());
-                            }
-                            kaiLeShiOrderAlignMapper.update(orderAlign);
-                        } catch (Exception e) {
-                            log.error("处理单个订单失败 outTid: {}", orderAlign.getOutTid(), e);
-                        }
-                    }, executor))
-                    .collect(Collectors.toList());
-
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-        } catch (Exception e) {
-            log.error("查询Tid任务失败", e);
-            return YzCloudResponse.error(500, "处理失败:" + e.getMessage());
-        } finally {
-            lock.unlock();
-        }
-        log.info("查询订单Tid任务结束");
-        return YzCloudResponse.success();
-    }
-
-    @SneakyThrows
-    @PostMapping("/queryDetail")
-    public YzCloudResponse<Object> queryDetail(@RequestBody OrderAlignDTO param) {
+    @PostMapping("/queryOutDetail")
+    public YzCloudResponse<Object> queryOutDetail(@RequestBody OrderAlignDTO param) {
         log.info("开始查询订单详情");
         String appId = param.getAppId();
         String[] appIdArr = appId.split("_");
@@ -239,7 +212,7 @@ public class KaiLeShiOrderAlignController {
         }
 
         try {
-            List<KaiLeShiOrderAlign> pendingOrders = kaiLeShiOrderAlignMapper.selectByStatusWithLimit(appId, STATUS_FOUND, BATCH_SIZE);
+            List<KaiLeShiOrderAlign> pendingOrders = kaiLeShiOrderAlignMapper.selectByStatusWithLimit(appId, STATUS_PENDING, BATCH_SIZE);
             if (CollectionUtils.isEmpty(pendingOrders)) {
                 log.info("没有需要处理的订单");
                 return YzCloudResponse.success();
@@ -265,17 +238,53 @@ public class KaiLeShiOrderAlignController {
 
                             KaileshiOrderQueryResponseDTO kaileshiOrderQueryResponse = new KaileshiOrderQueryResponseDTO();
                             String kylinOrderDetailStr = kylinOrderDetailQuery(outTid);
-                            if(StringUtils.isNotBlank(kylinOrderDetailStr)) {
-                                kaileshiOrderQueryResponse = JSON.parseObject(kylinOrderDetailStr, KaileshiOrderQueryResponseDTO.class);
+                            if (StringUtils.isNotBlank(kylinOrderDetailStr)) {
+                                kaileshiOrderQueryResponse = JSON.parseObject(JSON.toJSONString(JSON.parseObject(kylinOrderDetailStr).getJSONArray("data").getJSONObject(0)), KaileshiOrderQueryResponseDTO.class);
                             }
                             if (Objects.isNull(kaileshiOrderQueryResponse)) {
-                                thirdPartyOrderDetail.setStatus(DETAIL_STATUS_OUT_FAIL);
-                                thirdPartyOrderDetailMapper.insert(thirdPartyOrderDetail);
                                 orderAlign.setStatus(STATUS_NOT_FOUND);
                                 kaiLeShiOrderAlignMapper.update(orderAlign);
                                 log.warn("查询数云订单详情失败, outTid: {}", outTid);
                                 return;
                             }
+
+                            List<KaileshiOrderQuerySubItemResponseDTO> exchangeOrderItems = new ArrayList<>();
+                            List<KaileshiOrderQuerySubItemResponseDTO> refundOrderItems = new ArrayList<>();
+                            List<KaileshiOrderQuerySubItemResponseDTO> noSourceRefundOrderItems = new ArrayList<>();
+                            List<KaileshiOrderQuerySubItemResponseDTO> normalOrderItems = new ArrayList<>();
+                            String orderId = kaileshiOrderQueryResponse.getOrderId();
+                            List<KaileshiOrderQuerySubItemResponseDTO> orderItems = kaileshiOrderQueryResponse.getOrderItems();
+                            //判断是否是换货单
+                            boolean isExchangeOrder = false;
+                            for (KaileshiOrderQuerySubItemResponseDTO orderItem : orderItems) {
+                                if (orderItem.getQuantity() < 0) {
+                                    isExchangeOrder = true;
+                                    break;
+                                }
+                            }
+                            String originOrderId = kaileshiOrderQueryResponse.getOriginOrderId();
+                            //拆分子订单类型
+                            for (KaileshiOrderQuerySubItemResponseDTO orderItem : orderItems) {
+                                handleOrderItemType(isExchangeOrder, orderId, originOrderId, orderItem, exchangeOrderItems, refundOrderItems, noSourceRefundOrderItems, normalOrderItems);
+                            }
+
+                            //有原单退单
+                            if (CollectionUtils.isNotEmpty(refundOrderItems) || CollectionUtils.isNotEmpty(noSourceRefundOrderItems)) {
+                                KaiLeShiOrderRefundAlign tradePushLog = new KaiLeShiOrderRefundAlign();
+                                tradePushLog.setAppId(appId);
+                                tradePushLog.setKdtId(rootKdtId);
+                                tradePushLog.setOutRefundId(orderId);
+                                tradePushLog.setRefundId(""); // refundId is not provided in this scenario
+                                tradePushLog.setStatus(STATUS_OUT_DETAIL_QUERIED);
+                                tradePushLog.setType("正向退单");
+                                if (CollectionUtils.isNotEmpty(noSourceRefundOrderItems)) {
+                                    tradePushLog.setIsNoSourceRefundOrder(1);
+                                } else {
+                                    tradePushLog.setIsNoSourceRefundOrder(0);
+                                }
+                                kaiLeShiOrderRefundAlignMapper.insert(tradePushLog);
+                            }
+
                             OutOrderDetail outOrderDetail = new OutOrderDetail();
                             outOrderDetail.setChannel(kaileshiOrderQueryResponse.getChannelType());
                             outOrderDetail.setOutTid(outTid);
@@ -290,35 +299,149 @@ public class KaiLeShiOrderAlignController {
                             outOrderDetail.setTotalDiscountAmount(MoneyUtil.Yuan2Cent(kaileshiOrderQueryResponse.getTotalFee()) - MoneyUtil.Yuan2Cent(kaileshiOrderQueryResponse.getPayment()));
 
                             List<OutOrderDetail.SubOrder> oidList = new ArrayList<>();
-                            List<KaileshiOrderQuerySubItemResponseDTO> orderItems = kaileshiOrderQueryResponse.getOrderItems();
+
                             for (KaileshiOrderQuerySubItemResponseDTO orderItem : orderItems) {
-                                if (orderItem.getQuantity() > 0) {
-                                    OutOrderDetail.SubOrder subOrder = new OutOrderDetail.SubOrder();
-                                    subOrder.setNum(orderItem.getQuantity());
-                                    subOrder.setTotalFee(MoneyUtil.Yuan2Cent(orderItem.getTotalFee()));
-                                    subOrder.setPayment(MoneyUtil.Yuan2Cent(orderItem.getPayment()));
-                                    subOrder.setItemNo(orderItem.getProductCode());
-                                    subOrder.setSkuNo(orderItem.getSkuId());
-                                    subOrder.setTitle(orderItem.getProductName());
-                                    subOrder.setOutOid(orderItem.getOrderItemId());
-                                    oidList.add(subOrder);
-                                }
+                                OutOrderDetail.SubOrder subOrder = new OutOrderDetail.SubOrder();
+                                subOrder.setNum(orderItem.getQuantity());
+                                subOrder.setTotalFee(MoneyUtil.Yuan2Cent(orderItem.getTotalFee()));
+                                subOrder.setPayment(MoneyUtil.Yuan2Cent(orderItem.getPayment()));
+                                subOrder.setItemNo(orderItem.getProductCode());
+                                subOrder.setSkuNo(orderItem.getSkuId());
+                                subOrder.setTitle(orderItem.getProductName());
+                                subOrder.setOutOid(orderItem.getOrderItemId());
+                                oidList.add(subOrder);
                             }
                             outOrderDetail.setOidList(oidList);
                             thirdPartyOrderDetail.setOutTidDetail(JSON.toJSONString(outOrderDetail));
                             thirdPartyOrderDetail.setStatus(DETAIL_STATUS_QUERIED);
+                            thirdPartyOrderDetailMapper.insert(thirdPartyOrderDetail);
+                            //三方详情已查询
+                            orderAlign.setStatus(STATUS_OUT_DETAIL_QUERIED);
+                            orderAlign.setType("正常订单");
+                            kaiLeShiOrderAlignMapper.update(orderAlign);
+                        } catch (Exception e) {
+                            log.error("处理单个订单失败 outTid: {}", orderAlign.getOutTid(), e);
+                        }
+                    }, executor))
+                    .collect(Collectors.toList());
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        } catch (Exception e) {
+            log.error("查询Detail任务失败", e);
+            return YzCloudResponse.error(500, "处理失败:" + e.getMessage());
+        } finally {
+            lock.unlock();
+        }
+        log.info("查询订单Detail任务结束");
+        return YzCloudResponse.success();
+    }
 
-                            if(StringUtils.isNotBlank(tid)) {
-                                YouzanTradeGetResult youzanTradeGetResult = new YouzanTradeGetResult();//cloudTradeAPI.yzTradeGet(rootKdtId, tid);
+    @SneakyThrows
+    @PostMapping("/queryTid")
+    public YzCloudResponse<Object> queryTid(@RequestBody OrderAlignDTO param) {
+        log.info("开始查询订单Tid,appId:{}", param.getAppId());
+        String lockKey = String.format("queryTid_%s", param.getAppId());
+        RLock lock = redissonClient.getLock(lockKey);
+        boolean isLock = lock.tryLock(1, 5, TimeUnit.MINUTES);
+        if (!isLock) {
+            log.warn("获取锁失败,appId:{},订单映射对齐正在处理中,lockKey: {}", param.getAppId(), lockKey);
+            throw new UnrecoverableException("获取锁失败");
+        }
+
+        try {
+            String appId = param.getAppId();
+            List<KaiLeShiOrderAlign> pendingOrders = kaiLeShiOrderAlignMapper.selectByStatusWithLimit(appId, STATUS_OUT_DETAIL_QUERIED, BATCH_SIZE);
+            if (CollectionUtils.isEmpty(pendingOrders)) {
+                log.info("没有需要处理的订单");
+                return YzCloudResponse.success();
+            }
+
+            log.info("本批次处理订单数量: {}", pendingOrders.size());
+
+            List<CompletableFuture<Void>> futures = pendingOrders.stream()
+                    .map(orderAlign -> CompletableFuture.runAsync(() -> {
+                        try {
+                            OrderRelationDO orderRelation = infraOrderRelationMapper.getOne(orderAlign.getAppId(), null, orderAlign.getOutTid());
+                            if (Objects.nonNull(orderRelation) && StringUtils.isNotBlank(orderRelation.getTid())) {
+                                orderAlign.setStatus(STATUS_FOUND); // Found
+                                orderAlign.setTid(orderRelation.getTid());
+                                log.info("outTid: {} 找到 tid: {}", orderAlign.getOutTid(), orderRelation.getTid());
+                            } else {
+                                String tid = queryTid(orderAlign.getOutTid());
+                                if (StringUtils.isNotBlank(tid)) {
+                                    orderAlign.setStatus(STATUS_FOUND); // Found
+                                    orderAlign.setTid(tid);
+                                } else {
+                                    orderAlign.setStatus(2); // Not found
+                                    log.warn("outTid: {} 未找到 tid", orderAlign.getOutTid());
+                                }
+                            }
+                            kaiLeShiOrderAlignMapper.update(orderAlign);
+                        } catch (Exception e) {
+                            log.error("处理单个订单失败 outTid: {}", orderAlign.getOutTid(), e);
+                        }
+                    }, executor))
+                    .collect(Collectors.toList());
+
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        } catch (Exception e) {
+            log.error("查询Tid任务失败", e);
+            return YzCloudResponse.error(500, "处理失败:" + e.getMessage());
+        } finally {
+            lock.unlock();
+        }
+        log.info("查询订单Tid任务结束");
+        return YzCloudResponse.success();
+    }
+
+    @SneakyThrows
+    @PostMapping("/queryYzDetail")
+    public YzCloudResponse<Object> queryYzDetail(@RequestBody OrderAlignDTO param) {
+        log.info("开始查询订单详情");
+        String appId = param.getAppId();
+        String[] appIdArr = appId.split("_");
+        String tripartite = appIdArr[1];
+        Long rootKdtId = param.getRootKdtId();
+//        Map<String, Object> props = globalRoutePropsFetcher.fetchAllProps(rootKdtId, tripartite);
+
+        String lockKey = String.format("queryYzDetail_%s", param.getAppId());
+        RLock lock = redissonClient.getLock(lockKey);
+        boolean isLock = lock.tryLock(1, 5, TimeUnit.MINUTES);
+        if (!isLock) {
+            log.warn("获取锁失败,appId:{},订单详情查询正在处理中,lockKey: {}", param.getAppId(), lockKey);
+            throw new RecoverableException("获取锁失败");
+        }
+
+        try {
+            List<KaiLeShiOrderAlign> pendingOrders = kaiLeShiOrderAlignMapper.selectByStatusWithLimit(appId, STATUS_FOUND, BATCH_SIZE);
+            if (CollectionUtils.isEmpty(pendingOrders)) {
+                log.info("没有需要处理的订单");
+                return YzCloudResponse.success();
+            }
+
+            log.info("本批次处理订单数量: {}", pendingOrders.size());
+
+            List<CompletableFuture<Void>> futures = pendingOrders.stream()
+                    .map(orderAlign -> CompletableFuture.runAsync(() -> {
+                        try {
+                            String tid = orderAlign.getTid();
+
+                            YouzanOrderDetail youzanOrderDetail = new YouzanOrderDetail();
+                            youzanOrderDetail.setAppId(appId);
+                            youzanOrderDetail.setKdtId(rootKdtId);
+                            youzanOrderDetail.setTid(tid);
+
+                            if (StringUtils.isNotBlank(tid)) {
+                                String detailStr = queryDetail(tid);
+                                YouzanTradeGetResult youzanTradeGetResult = JSON.parseObject(detailStr, YouzanTradeGetResult.class);
                                 if (!youzanTradeGetResult.getSuccess() || Objects.isNull(youzanTradeGetResult.getData())) {
                                     youzanOrderDetail.setStatus(DETAIL_STATUS_YZ_FAIL);
-                                    thirdPartyOrderDetailMapper.insert(thirdPartyOrderDetail);
                                     youzanOrderDetailMapper.insert(youzanOrderDetail);
                                     orderAlign.setStatus(STATUS_NOT_FOUND);
                                     kaiLeShiOrderAlignMapper.update(orderAlign);
                                     log.warn("查询有赞订单详情失败, tid: {}", tid);
                                     return;
                                 }
+                                JSONObject jsonData = JSON.parseObject(detailStr);
                                 YouzanTradeGetResult.YouzanTradeGetResultData data = youzanTradeGetResult.getData();
                                 YouzanTradeGetResult.YouzanTradeGetResultFullorderinfo fullOrderInfo = data.getFullOrderInfo();
                                 YouzanTradeGetResult.YouzanTradeGetResultOrderinfo yzOrderInfo = fullOrderInfo.getOrderInfo();
@@ -335,34 +458,63 @@ public class KaiLeShiOrderAlignController {
                                 yzOrderDetail.setTotalDiscountAmount(MoneyUtil.YuanStr2Cent(fullOrderInfo.getPayInfo().getTotalFee()) - MoneyUtil.YuanStr2Cent(fullOrderInfo.getPayInfo().getPayment()));
 
                                 List<YzOrderDetail.SubOrder> yzOidList = new ArrayList<>();
-                                List<YouzanTradeGetResult.YouzanTradeGetResultOrders> orders = data.getFullOrderInfo().getOrders();
-                                for (YouzanTradeGetResult.YouzanTradeGetResultOrders order : orders) {
-                                    String itemNo = order.getItemNo();
-                                    String skuNo = order.getSkuNo();
-                                    String itemBarcode = order.getItemBarcode();
-                                    String skuBarcode = order.getSkuBarcode();
+                                JSONArray jsonOrders = jsonData.getJSONObject("data").getJSONObject("full_order_info").getJSONArray("orders");
+                                for (int i = 0; i < jsonOrders.size(); i++) {
+                                    JSONObject jsonOrder = jsonOrders.getJSONObject(i);
+                                    String itemNo = jsonOrder.getString("item_no");
+                                    String skuNo = jsonOrder.getString("sku_no");
+                                    String itemBarcode = jsonOrder.getString("item_barcode");
+                                    String skuBarcode = jsonOrder.getString("sku_barcode");
 
                                     YzOrderDetail.SubOrder subOrder = new YzOrderDetail.SubOrder();
-                                    subOrder.setItemId(order.getItemId());
-                                    subOrder.setSkuId(order.getSkuId());
+                                    subOrder.setItemId(jsonOrder.getLong("item_id"));
+                                    subOrder.setSkuId(jsonOrder.getLong("sku_id"));
                                     subOrder.setItemNo(StringUtils.isEmpty(itemNo) ? itemBarcode : itemNo);
                                     subOrder.setSkuNo(StringUtils.isEmpty(skuNo) ? skuBarcode : skuNo);
-                                    subOrder.setNum(order.getNum());
-                                    subOrder.setPrice(MoneyUtil.YuanStr2Cent(order.getPrice()));
-                                    subOrder.setDiscountPrice(MoneyUtil.YuanStr2Cent(order.getDiscountPrice()));
-                                    subOrder.setTotalAmount(MoneyUtil.YuanStr2Cent(order.getTotalFee()));
-                                    subOrder.setPayment(MoneyUtil.YuanStr2Cent(order.getPayment()));
-                                    subOrder.setTitle(order.getTitle());
-                                    subOrder.setOutOid(order.getOuterOid());
+                                    subOrder.setNum(jsonOrder.getInteger("num"));
+                                    subOrder.setPrice(MoneyUtil.YuanStr2Cent(jsonOrder.getString("price")));
+                                    subOrder.setDiscountPrice(MoneyUtil.YuanStr2Cent(jsonOrder.getString("discount_price")));
+                                    subOrder.setTotalAmount(MoneyUtil.YuanStr2Cent(jsonOrder.getString("total_fee")));
+                                    subOrder.setPayment(MoneyUtil.YuanStr2Cent(jsonOrder.getString("payment")));
+                                    subOrder.setTitle(jsonOrder.getString("title"));
+                                    subOrder.setOutOid(jsonOrder.getString("outer_oid"));
+                                    JSONArray daogousArray = jsonOrder.getJSONArray("daogous");
+                                    if (Objects.nonNull(daogousArray) && daogousArray.size() > 0) {
+                                        List<String> daogousList = new ArrayList<>();
+                                        for (int j = 0; j < daogousArray.size(); j++) {
+                                            daogousList.add(daogousArray.getString(j));
+                                        }
+                                        subOrder.setDaogous(daogousList);
+                                    }
                                     yzOidList.add(subOrder);
                                 }
+//                                List<YouzanTradeGetResult.YouzanTradeGetResultOrders> orders = data.getFullOrderInfo().getOrders();
+//                                for (YouzanTradeGetResult.YouzanTradeGetResultOrders order : orders) {
+//                                    String itemNo = order.getItemNo();
+//                                    String skuNo = order.getSkuNo();
+//                                    String itemBarcode = order.getItemBarcode();
+//                                    String skuBarcode = order.getSkuBarcode();
+//
+//                                    YzOrderDetail.SubOrder subOrder = new YzOrderDetail.SubOrder();
+//                                    subOrder.setItemId(order.getItemId());
+//                                    subOrder.setSkuId(order.getSkuId());
+//                                    subOrder.setItemNo(StringUtils.isEmpty(itemNo) ? itemBarcode : itemNo);
+//                                    subOrder.setSkuNo(StringUtils.isEmpty(skuNo) ? skuBarcode : skuNo);
+//                                    subOrder.setNum(order.getNum());
+//                                    subOrder.setPrice(MoneyUtil.YuanStr2Cent(order.getPrice()));
+//                                    subOrder.setDiscountPrice(MoneyUtil.YuanStr2Cent(order.getDiscountPrice()));
+//                                    subOrder.setTotalAmount(MoneyUtil.YuanStr2Cent(order.getTotalFee()));
+//                                    subOrder.setPayment(MoneyUtil.YuanStr2Cent(order.getPayment()));
+//                                    subOrder.setTitle(order.getTitle());
+//                                    subOrder.setOutOid(order.getOuterOid());
+//                                    subOrder.setDaogous(order.getdaogou);
+//                                    yzOidList.add(subOrder);
+//                                }
                                 yzOrderDetail.setOidList(yzOidList);
                                 youzanOrderDetail.setTidDetail(JSON.toJSONString(yzOrderDetail));
                                 youzanOrderDetail.setStatus(DETAIL_STATUS_QUERIED);
                                 youzanOrderDetailMapper.insert(youzanOrderDetail);
                             }
-
-                            thirdPartyOrderDetailMapper.insert(thirdPartyOrderDetail);
 
                             orderAlign.setStatus(STATUS_DETAIL_QUERIED);
                             kaiLeShiOrderAlignMapper.update(orderAlign);
@@ -551,31 +703,41 @@ public class KaiLeShiOrderAlignController {
                             List<OutOrderDetail.SubOrder> outOidList = outOrderDetail.getOidList();
                             boolean itemAlign = true;
                             StringBuilder sb = new StringBuilder("");
+                            String type = orderAlign.getType();
+                            List<String> guideNos = new ArrayList<>();
                             for (OutOrderDetail.SubOrder outOrder : outOidList) {
+                                Integer outNum = outOrder.getNum();
+                                //按订单类型来区分取值逻辑
+                                if (Objects.equals(type, "正常订单")) {
+                                    if (outNum <= 0) {
+                                        continue;
+                                    }
+                                } else {
+                                    if (outNum >= 0) {
+                                        continue;
+                                    }
+                                }
+
                                 String outItemNo = outOrder.getItemNo();
                                 //转换69码
                                 String outSkuNo = outOrder.getSkuNo();
                                 if (StringUtils.isNotBlank(outSkuNo)) {
-                                    String skuCode = redisCacheClient.get(outSkuNo);
+                                    org.redisson.api.RBucket<String> skuCodeBucket = redissonClient.getBucket(outSkuNo);
+                                    String skuCode = skuCodeBucket.get();
                                     if (StringUtils.isBlank(skuCode)) {
-                                        KLSItemQueryRequest klsItemQueryRequest = new KLSItemQueryRequest();
-                                        KLSItemQueryResponse klsItemQueryResponse = new KLSItemQueryResponse();
-                                        if (Objects.nonNull(klsItemQueryResponse)) {
-                                            String eanCode = klsItemQueryResponse.getEanCode();
-                                            String productCode = klsItemQueryResponse.getProductCode();
-                                            skuCode = parseEanCode(eanCode, productCode);
-                                            redisCacheClient.set(outSkuNo, skuCode, 2, TimeUnit.DAYS);
-                                            outSkuNo = skuCode;
-                                        }
+                                        String eanCode = queryEanCode(outItemNo, outSkuNo);
+                                        skuCode = parseEanCode(eanCode, outSkuNo);
+                                        skuCodeBucket.set(skuCode, 2, TimeUnit.DAYS);
+                                        outSkuNo = skuCode;
                                     } else {
                                         outSkuNo = skuCode;
                                     }
                                 }
 
                                 String yzOutOid = outOrder.getOutOid();
-                                Integer outNum = outOrder.getNum();
-                                Long totalFee = outOrder.getTotalFee();
-                                Long outPayment = outOrder.getPayment();
+                                Long totalFee = Math.abs(outOrder.getTotalFee());
+                                Long outPayment = Math.abs(outOrder.getPayment());
+                                outNum = Math.abs(outNum);
                                 // 商品原价
                                 Long outPrice = KaileshiUtil.handlePrice(MoneyUtil.centToYuan(totalFee).doubleValue(), outNum);
                                 // 单商品现价（原价减去优惠后的金额）
@@ -588,7 +750,6 @@ public class KaiLeShiOrderAlignController {
                                 boolean itemTotalAmountAlign = true;
                                 boolean itemPaymentAlign = true;
 //                        boolean guideAlign = true;
-
 
                                 for (YzOrderDetail.SubOrder yzOid : oidList) {
                                     String outOid = yzOid.getOutOid();
@@ -615,12 +776,10 @@ public class KaiLeShiOrderAlignController {
                                         if (!Objects.equals(outDiscountPrice, discountPrice)) {
                                             itemDiscountPriceAlign = false;
                                         }
-
-//                                Long totalAmount = yzOid.getTotalAmount();
-//                                if (!Objects.equals(totalAmount, totalFee)) {
-//                                    itemTotalAmountAlign = false;
-//                                }
-
+                                        List<String> daogous = yzOid.getDaogous();
+                                        if (CollectionUtils.isNotEmpty(daogous)) {
+                                            guideNos.addAll(daogous);
+                                        }
                                         Long payment = yzOid.getPayment();
                                         if (!Objects.equals(payment, outPayment)) {
                                             itemPaymentAlign = false;
@@ -663,19 +822,44 @@ public class KaiLeShiOrderAlignController {
                                 result.setSubOrderResult("子订单一致");
                             }
 
-                            // Guide alignment
-                            result.setYzGuideNoList("");
-                            result.setOutGuideNoList(outOrderDetail.getGuideCode());
+                            String daogouResult = "true";
+                            String guideCode = outOrderDetail.getGuideCode();
+                            if (CollectionUtils.isNotEmpty(guideNos)) {
+                                guideNos = guideNos.stream().distinct().collect(Collectors.toList());
+                                result.setYzGuideNoList(String.join(",", guideNos));
+                            }
+                            if (StringUtils.isNotBlank(guideCode)) {
+                                String[] outGuideCodes = guideCode.split(",");
+                                for (String outGuideCode : outGuideCodes) {
+                                    String yzOpenId = null;
+                                    String cacheKey = "kaileshi:guide_yz_open_id:" + kdtId + ":" + outGuideCode;
+                                    org.redisson.api.RBucket<String> bucket = redissonClient.getBucket(cacheKey);
+                                    yzOpenId = bucket.get();
 
-//                    for (YzOrderDetail.SubOrder yzOid : oidList) {
-//                        String guideList = yzOid.getGuideList();
-//                        String yzSkuNo = yzOid.getSkuNo();
-//                        if (Objects.equals(outItemNo, yzItemNo) && Objects.equals(outSkuNo, yzSkuNo)) {
-//                            isExist = true;
-//                        }
-//                    }
+                                    if (yzOpenId == null) { // Cache Miss
+                                        ShoppingGuideRelationDO shoppingGuideRelation = infraShoppingGuideRelationMapper.getBySellerId(kdtId, outGuideCode);
+                                        if (Objects.nonNull(shoppingGuideRelation) && StringUtils.isNotBlank(shoppingGuideRelation.getYzOpenId())) {
+                                            yzOpenId = shoppingGuideRelation.getYzOpenId();
+                                            bucket.set(yzOpenId, 24, TimeUnit.HOURS); // Cache the found yzOpenId
+                                        } else {
+                                            // Cache the fact that it's not found to prevent repeated DB calls
+                                            bucket.set("", 24, TimeUnit.HOURS);
+                                            yzOpenId = ""; // Use empty string to represent not found
+                                        }
+                                    }
 
-//                    result.setItemGuideResult(String.valueOf(StringUtils.isBlank(result.getOutGuideNoList())));
+                                    if (StringUtils.isBlank(yzOpenId)) {
+                                        daogouResult = "存在未映射导购";
+                                        break;
+                                    }
+                                    if (!guideNos.contains(yzOpenId)) {
+                                        daogouResult = "映射的导购id与订单中导购id不一致";
+                                        break;
+                                    }
+                                }
+                                result.setOutGuideNoList(guideCode);
+                            }
+                            result.setItemGuideResult(daogouResult);
 
                             kaiLeShiOrderAlignResultMapper.insert(result);
 
@@ -695,7 +879,7 @@ public class KaiLeShiOrderAlignController {
         } finally {
             lock.unlock();
         }
-        log.info("查询订单Detail任务结束");
+        log.info("订单对账任务结束");
         return YzCloudResponse.success();
     }
 
@@ -726,14 +910,14 @@ public class KaiLeShiOrderAlignController {
         return responseStr;
     }
 
-    public static String queryRefundId(String outTid) throws IOException {
+    public static String queryDetail(String tid) throws IOException {
         MediaType mediaType = MediaType.parse("application/json");
-        okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\n    \"appId\":\"42243307_kylin\",\"rootKdtId\":42243307,    \"outRefundId\":\"%s\"\n}", outTid));
+        okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\"tid\":\"%s\"}", tid));
         Request request = new Request.Builder()
-                .url("https://youzanyun-connector-kylin.isv.youzan.com/kaileshi/refundRelation/query")
+                .url("https://open-pre.youzanyun.com/api/youzan.trade.get/4.0.2?access_token=9148af1d905f09244aafcb298954af3")
                 .method("POST", body)
                 .addHeader("Content-Type", "application/json")
-                .addHeader("Cookie", "_kdt_id_=91004745; kdt_id=19075201; acw_tc=4b1b883359ecbd6d2ba882e8bfddff35c4fec41ece8df7917353cc60041e9907")
+                .addHeader("Cookie", "acw_tc=064c13bee4b4da2a4c388a22d53d56e15eaacc2d04ef5b64685587cc076b0b4c")
                 .build();
         Response response = client.newCall(request).execute();
         String responseStr = response.body().string();
@@ -745,9 +929,8 @@ public class KaiLeShiOrderAlignController {
         String callService = "omni-api";
         String contextPath = "omni-api";
         String serviceSecret = "gdis22kslllk2";
-
-        String url = String.format("%s?memberType=kailas&orderBeginTime=2010-11-18%2003:00:00&orderEndTime=2025-11-18%2004:00:00&pageNo=1&pageSize=20&status=FINISHED&orderId=%s",
-                API_URL, outTid);
+        String url = String.format("%s?memberType=kailas&orderBeginTime=%s&orderEndTime=%s&pageNo=1&pageSize=20&orderId=%s",
+                API_URL, "2010-11-18 03:00:00".replace(" ", "%20"), "2025-11-18 04:00:00".replace(" ", "%20"), outTid);
 
         Request request = new Request.Builder()
                 .url(url)
@@ -762,4 +945,65 @@ public class KaiLeShiOrderAlignController {
         String responseStr = response.body().string();
         return responseStr;
     }
+
+    public static String queryEanCode(String itemNo, String skuNo) throws IOException {
+        String timeStamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+        String callService = "omni-api";
+        String contextPath = "omni-api";
+        String serviceSecret = "gdis22kslllk2";
+        String url = String.format("%s?memberType=kailas&createBeginTime=%s&createEndTime=%s&pageNo=1&pageSize=200&sqId=%s&productCode=%s",
+                ITEM_API_URL, "2010-01-18 00:00:00".replace(" ", "%20"), "2025-12-12 00:00:00".replace(" ", "%20"), itemNo, skuNo);
+
+        Request request = new Request.Builder()
+                .url(url)
+                .method("GET", null)
+                .addHeader("X-Caller-Sign", SignUtil.generateSign(callService, contextPath, "v1", timeStamp, serviceSecret, "/youzan/member/order/page"))
+                .addHeader("X-Caller-Timestamp", timeStamp)
+                .addHeader("X-Caller-Service", callService)
+                .addHeader("Content-Type", "application/json")
+                .build();
+
+        Response response = client.newCall(request).execute();
+        String responseStr = response.body().string();
+        JSONObject jsonObject = JSON.parseObject(responseStr);
+        if (Objects.nonNull(jsonObject) && jsonObject.getJSONArray("data").size() > 0) {
+            return jsonObject.getJSONArray("data").getJSONObject(0).getString("eanCode");
+        }
+        return "";
+    }
+
+    private void handleOrderItemType(boolean isExchangeOrder, String orderId, String originOrderId, KaileshiOrderQuerySubItemResponseDTO orderItem, List<KaileshiOrderQuerySubItemResponseDTO> exchangeOrderItems, List<KaileshiOrderQuerySubItemResponseDTO> refundOrderItems, List<KaileshiOrderQuerySubItemResponseDTO> noSourceRefundOrderItems, List<KaileshiOrderQuerySubItemResponseDTO> normalOrderItems) {
+        //无原单号时，可能为非会员订单换货，可能为正常订单
+        if (StringUtils.isBlank(originOrderId)) {
+            //tips:非会员订单换货，是没有原单号的
+            if (isExchangeOrder) {
+                //换货
+                if (orderItem.getQuantity() > 0) {
+                    //换货
+                    exchangeOrderItems.add(orderItem);
+                } else if (orderItem.getQuantity() < 0) {
+                    //无原单退款
+                    noSourceRefundOrderItems.add(orderItem);
+                }
+            } else {
+                normalOrderItems.add(orderItem);
+            }
+        } else {
+            if (orderItem.getQuantity() > 0) {
+                //换货
+                exchangeOrderItems.add(orderItem);
+            } else if (orderItem.getQuantity() < 0) {
+                //退款单号与原单一致，说明是无原单退款
+                if (Objects.equals(originOrderId, orderId)) {
+                    //无原单退款
+                    noSourceRefundOrderItems.add(orderItem);
+                } else {
+                    //有原单退款
+                    refundOrderItems.add(orderItem);
+                }
+            }
+        }
+    }
+
+
 }

@@ -6,7 +6,7 @@
         <result column="kdt_id" property="kdtId" jdbcType="BIGINT"/>
         <result column="app_id" property="appId" jdbcType="VARCHAR"/>
         <result column="tid" property="tid" jdbcType="VARCHAR"/>
-        <result column="tid_detail" property="tidDetail" jdbcType="LONGVARCHAR"/>
+        <result column="tid_detail" property="tidDetail" jdbcType="VARCHAR"/>
         <result column="status" property="status" jdbcType="INTEGER"/>
         <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
         <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>

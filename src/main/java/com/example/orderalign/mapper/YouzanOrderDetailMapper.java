@@ -1,12 +1,14 @@
 package com.example.orderalign.mapper;
 
 import com.example.orderalign.model.YouzanOrderDetail;
+import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 /**
  * @author jincai.wu
  * @date 2025/9/22
  */
+@Mapper
 public interface YouzanOrderDetailMapper {
 
     /**

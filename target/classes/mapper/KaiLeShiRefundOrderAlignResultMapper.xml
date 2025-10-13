@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.example.orderalign.mapper.KaiLeShiRefundOrderAlignResultMapper">
+    <resultMap id="BaseResultMap" type="com.example.orderalign.model.KaiLeShiRefundOrderAlignResult">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="kdt_id" property="kdtId" jdbcType="BIGINT"/>
+        <result column="app_id" property="appId" jdbcType="VARCHAR"/>
+        <result column="refund_id" property="refundId" jdbcType="VARCHAR"/>
+        <result column="out_refund_id" property="outRefundId" jdbcType="VARCHAR"/>
+
+        <result column="yz_create_time" property="yzCreateTime" jdbcType="VARCHAR"/>
+        <result column="out_create_time" property="outCreateTime" jdbcType="VARCHAR"/>
+        <result column="create_time_result" property="createTimeResult" jdbcType="VARCHAR"/>
+
+        <result column="node_kdt_id" property="nodeKdtId" jdbcType="BIGINT"/>
+        <result column="yz_shop_no" property="yzShopNo" jdbcType="VARCHAR"/>
+        <result column="out_shop_no" property="outShopNo" jdbcType="VARCHAR"/>
+        <result column="shop_result" property="shopResult" jdbcType="VARCHAR"/>
+
+        <result column="yz_payment" property="yzPayment" jdbcType="BIGINT"/>
+        <result column="out_payment" property="outPayment" jdbcType="BIGINT"/>
+        <result column="payment_result" property="paymentResult" jdbcType="VARCHAR"/>
+
+        <result column="sub_order_result" property="subOrderResult" jdbcType="VARCHAR"/>
+        <result column="sub_order_fail_reason" property="subOrderFailReason" jdbcType="LONGVARCHAR"/>
+
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+        <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, kdt_id, app_id, refund_id, out_refund_id,
+        yz_create_time, out_create_time, create_time_result,
+        node_kdt_id, yz_shop_no, out_shop_no, shop_result,
+        yz_payment, out_payment, payment_result,
+        sub_order_result, sub_order_fail_reason,
+        created_at, updated_at
+    </sql>
+
+    <insert id="insert" parameterType="com.example.orderalign.model.KaiLeShiRefundOrderAlignResult">
+        insert into kaileshi_refund_order_align_result (kdt_id, app_id, refund_id, out_refund_id,
+        yz_create_time, out_create_time, create_time_result,
+        node_kdt_id, yz_shop_no, out_shop_no, shop_result,
+        yz_payment, out_payment, payment_result,
+        sub_order_result, sub_order_fail_reason,
+        created_at, updated_at)
+        values (#{kdtId,jdbcType=BIGINT}, #{appId,jdbcType=VARCHAR}, #{refundId,jdbcType=VARCHAR}, #{outRefundId,jdbcType=VARCHAR},
+        #{yzCreateTime,jdbcType=VARCHAR}, #{outCreateTime,jdbcType=VARCHAR}, #{createTimeResult,jdbcType=VARCHAR},
+        #{nodeKdtId,jdbcType=BIGINT}, #{yzShopNo,jdbcType=VARCHAR}, #{outShopNo,jdbcType=VARCHAR}, #{shopResult,jdbcType=VARCHAR},
+        #{yzPayment,jdbcType=BIGINT}, #{outPayment,jdbcType=BIGINT}, #{paymentResult,jdbcType=VARCHAR},
+        #{subOrderResult,jdbcType=VARCHAR}, #{subOrderFailReason,jdbcType=LONGVARCHAR},
+        now(), now())
+    </insert>
+
+    <select id="selectByPrimaryKey" resultMap="BaseResultMap" parameterType="java.lang.Long">
+        select
+        <include refid="Base_Column_List"/>
+        from kaileshi_refund_order_align_result
+        where id = #{id,jdbcType=BIGINT}
+    </select>
+
+    <update id="updateByPrimaryKeySelective" parameterType="com.example.orderalign.model.KaiLeShiRefundOrderAlignResult">
+        update kaileshi_refund_order_align_result
+        <set>
+            <if test="kdtId != null">kdt_id = #{kdtId,jdbcType=BIGINT},</if>
+            <if test="appId != null">app_id = #{appId,jdbcType=VARCHAR},</if>
+            <if test="refundId != null">refund_id = #{refundId,jdbcType=VARCHAR},</if>
+            <if test="outRefundId != null">out_refund_id = #{outRefundId,jdbcType=VARCHAR},</if>
+            <if test="yzCreateTime != null">yz_create_time = #{yzCreateTime,jdbcType=VARCHAR},</if>
+            <if test="outCreateTime != null">out_create_time = #{outCreateTime,jdbcType=VARCHAR},</if>
+            <if test="createTimeResult != null">create_time_result = #{createTimeResult,jdbcType=VARCHAR},</if>
+            <if test="nodeKdtId != null">node_kdt_id = #{nodeKdtId,jdbcType=BIGINT},</if>
+            <if test="yzShopNo != null">yz_shop_no = #{yzShopNo,jdbcType=VARCHAR},</if>
+            <if test="outShopNo != null">out_shop_no = #{outShopNo,jdbcType=VARCHAR},</if>
+            <if test="shopResult != null">shop_result = #{shopResult,jdbcType=VARCHAR},</if>
+            <if test="yzPayment != null">yz_payment = #{yzPayment,jdbcType=BIGINT},</if>
+            <if test="outPayment != null">out_payment = #{outPayment,jdbcType=BIGINT},</if>
+            <if test="paymentResult != null">payment_result = #{paymentResult,jdbcType=VARCHAR},</if>
+            <if test="subOrderResult != null">sub_order_result = #{subOrderResult,jdbcType=VARCHAR},</if>
+            <if test="subOrderFailReason != null">sub_order_fail_reason = #{subOrderFailReason,jdbcType=LONGVARCHAR},</if>
+            updated_at = now()
+        </set>
+        where id = #{id,jdbcType=BIGINT}
+    </update>
+
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.Long">
+        delete from kaileshi_refund_order_align_result
+        where id = #{id,jdbcType=BIGINT}
+    </delete>
+
+    <select id="selectByRefundId" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from kaileshi_refund_order_align_result
+        where app_id = #{appId,jdbcType=VARCHAR} and refund_id = #{refundId,jdbcType=VARCHAR}
+    </select>
+
+</mapper>

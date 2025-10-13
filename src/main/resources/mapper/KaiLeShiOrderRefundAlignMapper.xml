@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.example.orderalign.mapper.KaiLeShiOrderRefundAlignMapper">
+    <resultMap id="BaseResultMap" type="com.example.orderalign.model.KaiLeShiOrderRefundAlign">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="kdt_id" property="kdtId" jdbcType="BIGINT"/>
+        <result column="app_id" property="appId" jdbcType="VARCHAR"/>
+        <result column="refund_id" property="refundId" jdbcType="VARCHAR"/>
+        <result column="out_refund_id" property="outRefundId" jdbcType="VARCHAR"/>
+        <result column="status" property="status" jdbcType="INTEGER"/>
+        <result column="type" property="type" jdbcType="VARCHAR"/>
+        <result column="is_no_source_refund_order" property="isNoSourceRefundOrder" jdbcType="INTEGER"/>
+        <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
+        <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, kdt_id, app_id, refund_id, out_refund_id, status, type, is_no_source_refund_order, created_at, updated_at
+    </sql>
+
+    <insert id="insert" parameterType="com.example.orderalign.model.KaiLeShiOrderRefundAlign">
+        insert into kaileshi_order_refund_align (kdt_id, app_id, refund_id, out_refund_id, status, type, is_no_source_refund_order, created_at, updated_at)
+        values (#{kdtId,jdbcType=BIGINT}, #{appId,jdbcType=VARCHAR}, #{refundId,jdbcType=VARCHAR}, #{outRefundId,jdbcType=VARCHAR}, #{status,jdbcType=INTEGER}, #{type,jdbcType=VARCHAR}, #{isNoSourceRefundOrder,jdbcType=INTEGER}, now(), now())
+    </insert>
+
+    <select id="selectByAppIdAndOutRefundId" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from kaileshi_order_refund_align
+        where app_id = #{appId,jdbcType=VARCHAR} and out_refund_id = #{outRefundId,jdbcType=VARCHAR}
+    </select>
+
+    <select id="selectByStatusWithLimit" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from kaileshi_order_refund_align
+        where app_id = #{appId,jdbcType=VARCHAR} and status = #{status,jdbcType=INTEGER}
+        limit #{limit,jdbcType=INTEGER}
+    </select>
+
+    <update id="update" parameterType="com.example.orderalign.model.KaiLeShiOrderRefundAlign">
+        update kaileshi_order_refund_align
+        <set>
+            <if test="kdtId != null">
+                kdt_id = #{kdtId,jdbcType=BIGINT},
+            </if>
+            <if test="appId != null">
+                app_id = #{appId,jdbcType=VARCHAR},
+            </if>
+            <if test="refundId != null">
+                refund_id = #{refundId,jdbcType=VARCHAR},
+            </if>
+            <if test="outRefundId != null">
+                out_refund_id = #{outRefundId,jdbcType=VARCHAR},
+            </if>
+            <if test="status != null">
+                status = #{status,jdbcType=INTEGER},
+            </if>
+            <if test="type != null">
+                type = #{type,jdbcType=VARCHAR},
+            </if>
+            <if test="isNoSourceRefundOrder != null">
+                is_no_source_refund_order = #{isNoSourceRefundOrder,jdbcType=INTEGER},
+            </if>
+            updated_at = now()
+        </set>
+        where id = #{id,jdbcType=BIGINT}
+    </update>
+
+</mapper>

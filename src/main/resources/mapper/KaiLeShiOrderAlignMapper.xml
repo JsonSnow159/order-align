@@ -8,17 +8,18 @@
         <result column="tid" property="tid" jdbcType="VARCHAR"/>
         <result column="out_tid" property="outTid" jdbcType="VARCHAR"/>
         <result column="status" property="status" jdbcType="INTEGER"/>
+        <result column="type" property="type" jdbcType="VARCHAR"/>
         <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
         <result column="updated_at" property="updatedAt" jdbcType="TIMESTAMP"/>
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, kdt_id, app_id, tid, out_tid, status, created_at, updated_at
+        id, kdt_id, app_id, tid, out_tid, status, type, created_at, updated_at
     </sql>
 
     <insert id="insert" parameterType="com.example.orderalign.model.KaiLeShiOrderAlign">
-        insert into kaileshi_order_align (kdt_id, app_id, tid, out_tid, status, created_at, updated_at)
-        values (#{kdtId,jdbcType=BIGINT}, #{appId,jdbcType=VARCHAR}, #{tid,jdbcType=VARCHAR}, #{outTid,jdbcType=VARCHAR}, #{status,jdbcType=INTEGER}, now(), now())
+        insert into kaileshi_order_align (kdt_id, app_id, tid, out_tid, status, type, created_at, updated_at)
+        values (#{kdtId,jdbcType=BIGINT}, #{appId,jdbcType=VARCHAR}, #{tid,jdbcType=VARCHAR}, #{outTid,jdbcType=VARCHAR}, #{status,jdbcType=INTEGER}, #{type,jdbcType=VARCHAR}, now(), now())
     </insert>
 
     <select id="selectByAppIdAndOutTid" resultMap="BaseResultMap">
@@ -53,6 +54,9 @@
             </if>
             <if test="status != null">
                 status = #{status,jdbcType=INTEGER},
+            </if>
+            <if test="type != null">
+                type = #{type,jdbcType=VARCHAR},
             </if>
             updated_at = now()
         </set>

@@ -12,6 +12,8 @@ public class YzOrderDetail {
     private Long kdtId;
     //有赞会员ID
     private String yzOpenId;
+    //无原单的userId
+    private String userId;
     //手机号
     private String mobile;
     //渠道
@@ -55,8 +57,10 @@ public class YzOrderDetail {
         //商品名称
         private String title;
         //导购编码列表
-        private String guideList;
+        private List<String> daogous;
         //外部子订单id
         private String outOid;
+        //有赞子订单id
+        private String oid;
     }
 }

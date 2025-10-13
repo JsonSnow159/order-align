@@ -105,7 +105,7 @@ public class KaiLeShiOrderAlignResult {
     //商品未对齐的明细
     private String subOrderFailReason;
 
-    //有赞映射导购编码
+    //有赞导购id
     private String yzGuideNoList;
     //数云导购编码列表
     private String outGuideNoList;

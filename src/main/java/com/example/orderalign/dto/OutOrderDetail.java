@@ -50,5 +50,7 @@ public class OutOrderDetail {
         private String title;
         //三方子订单id
         private String outOid;
+        //三方原子订单id
+        private String outOriginOrderItemIdId;
     }
 }
