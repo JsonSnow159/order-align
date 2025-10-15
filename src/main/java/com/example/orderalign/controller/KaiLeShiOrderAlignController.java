@@ -441,7 +441,7 @@ public class KaiLeShiOrderAlignController {
                                     log.warn("查询有赞订单详情失败, tid: {}", tid);
                                     return;
                                 }
-                                JSONObject jsonData = JSON.parseObject(detailStr);
+//                                JSONObject jsonData = JSON.parseObject(detailStr);
                                 YouzanTradeGetResult.YouzanTradeGetResultData data = youzanTradeGetResult.getData();
                                 YouzanTradeGetResult.YouzanTradeGetResultFullorderinfo fullOrderInfo = data.getFullOrderInfo();
                                 YouzanTradeGetResult.YouzanTradeGetResultOrderinfo yzOrderInfo = fullOrderInfo.getOrderInfo();
@@ -458,58 +458,60 @@ public class KaiLeShiOrderAlignController {
                                 yzOrderDetail.setTotalDiscountAmount(MoneyUtil.YuanStr2Cent(fullOrderInfo.getPayInfo().getTotalFee()) - MoneyUtil.YuanStr2Cent(fullOrderInfo.getPayInfo().getPayment()));
 
                                 List<YzOrderDetail.SubOrder> yzOidList = new ArrayList<>();
-                                JSONArray jsonOrders = jsonData.getJSONObject("data").getJSONObject("full_order_info").getJSONArray("orders");
-                                for (int i = 0; i < jsonOrders.size(); i++) {
-                                    JSONObject jsonOrder = jsonOrders.getJSONObject(i);
-                                    String itemNo = jsonOrder.getString("item_no");
-                                    String skuNo = jsonOrder.getString("sku_no");
-                                    String itemBarcode = jsonOrder.getString("item_barcode");
-                                    String skuBarcode = jsonOrder.getString("sku_barcode");
-
-                                    YzOrderDetail.SubOrder subOrder = new YzOrderDetail.SubOrder();
-                                    subOrder.setItemId(jsonOrder.getLong("item_id"));
-                                    subOrder.setSkuId(jsonOrder.getLong("sku_id"));
-                                    subOrder.setItemNo(StringUtils.isEmpty(itemNo) ? itemBarcode : itemNo);
-                                    subOrder.setSkuNo(StringUtils.isEmpty(skuNo) ? skuBarcode : skuNo);
-                                    subOrder.setNum(jsonOrder.getInteger("num"));
-                                    subOrder.setPrice(MoneyUtil.YuanStr2Cent(jsonOrder.getString("price")));
-                                    subOrder.setDiscountPrice(MoneyUtil.YuanStr2Cent(jsonOrder.getString("discount_price")));
-                                    subOrder.setTotalAmount(MoneyUtil.YuanStr2Cent(jsonOrder.getString("total_fee")));
-                                    subOrder.setPayment(MoneyUtil.YuanStr2Cent(jsonOrder.getString("payment")));
-                                    subOrder.setTitle(jsonOrder.getString("title"));
-                                    subOrder.setOutOid(jsonOrder.getString("outer_oid"));
-                                    JSONArray daogousArray = jsonOrder.getJSONArray("daogous");
-                                    if (Objects.nonNull(daogousArray) && daogousArray.size() > 0) {
-                                        List<String> daogousList = new ArrayList<>();
-                                        for (int j = 0; j < daogousArray.size(); j++) {
-                                            daogousList.add(daogousArray.getString(j));
-                                        }
-                                        subOrder.setDaogous(daogousList);
-                                    }
-                                    yzOidList.add(subOrder);
-                                }
-//                                List<YouzanTradeGetResult.YouzanTradeGetResultOrders> orders = data.getFullOrderInfo().getOrders();
-//                                for (YouzanTradeGetResult.YouzanTradeGetResultOrders order : orders) {
-//                                    String itemNo = order.getItemNo();
-//                                    String skuNo = order.getSkuNo();
-//                                    String itemBarcode = order.getItemBarcode();
-//                                    String skuBarcode = order.getSkuBarcode();
+//                                JSONArray jsonOrders = jsonData.getJSONObject("data").getJSONObject("full_order_info").getJSONArray("orders");
+//                                for (int i = 0; i < jsonOrders.size(); i++) {
+//                                    JSONObject jsonOrder = jsonOrders.getJSONObject(i);
+//                                    String itemNo = jsonOrder.getString("item_no");
+//                                    String skuNo = jsonOrder.getString("sku_no");
+//                                    String itemBarcode = jsonOrder.getString("item_barcode");
+//                                    String skuBarcode = jsonOrder.getString("sku_barcode");
 //
 //                                    YzOrderDetail.SubOrder subOrder = new YzOrderDetail.SubOrder();
-//                                    subOrder.setItemId(order.getItemId());
-//                                    subOrder.setSkuId(order.getSkuId());
+//                                    subOrder.setItemId(jsonOrder.getLong("item_id"));
+//                                    subOrder.setSkuId(jsonOrder.getLong("sku_id"));
 //                                    subOrder.setItemNo(StringUtils.isEmpty(itemNo) ? itemBarcode : itemNo);
 //                                    subOrder.setSkuNo(StringUtils.isEmpty(skuNo) ? skuBarcode : skuNo);
-//                                    subOrder.setNum(order.getNum());
-//                                    subOrder.setPrice(MoneyUtil.YuanStr2Cent(order.getPrice()));
-//                                    subOrder.setDiscountPrice(MoneyUtil.YuanStr2Cent(order.getDiscountPrice()));
-//                                    subOrder.setTotalAmount(MoneyUtil.YuanStr2Cent(order.getTotalFee()));
-//                                    subOrder.setPayment(MoneyUtil.YuanStr2Cent(order.getPayment()));
-//                                    subOrder.setTitle(order.getTitle());
-//                                    subOrder.setOutOid(order.getOuterOid());
-//                                    subOrder.setDaogous(order.getdaogou);
+//                                    subOrder.setNum(jsonOrder.getInteger("num"));
+//                                    subOrder.setPrice(MoneyUtil.YuanStr2Cent(jsonOrder.getString("price")));
+//                                    subOrder.setDiscountPrice(MoneyUtil.YuanStr2Cent(jsonOrder.getString("discount_price")));
+//                                    subOrder.setTotalAmount(MoneyUtil.YuanStr2Cent(jsonOrder.getString("total_fee")));
+//                                    subOrder.setPayment(MoneyUtil.YuanStr2Cent(jsonOrder.getString("payment")));
+//                                    subOrder.setTitle(jsonOrder.getString("title"));
+//                                    subOrder.setOutOid(jsonOrder.getString("outer_oid"));
+//
+//                                    JSONArray daogousArray = jsonOrder.getJSONArray("daogous");
+//                                    if (Objects.nonNull(daogousArray) && daogousArray.size() > 0) {
+//                                        List<String> daogousList = new ArrayList<>();
+//                                        for (int j = 0; j < daogousArray.size(); j++) {
+//                                            daogousList.add(daogousArray.getString(j));
+//                                        }
+//                                        subOrder.setDaogous(daogousList);
+//                                    }
+//
 //                                    yzOidList.add(subOrder);
 //                                }
+                                List<YouzanTradeGetResult.YouzanTradeGetResultOrders> orders = data.getFullOrderInfo().getOrders();
+                                for (YouzanTradeGetResult.YouzanTradeGetResultOrders order : orders) {
+                                    String itemNo = order.getItemNo();
+                                    String skuNo = order.getSkuNo();
+                                    String itemBarcode = order.getItemBarcode();
+                                    String skuBarcode = order.getSkuBarcode();
+
+                                    YzOrderDetail.SubOrder subOrder = new YzOrderDetail.SubOrder();
+                                    subOrder.setItemId(order.getItemId());
+                                    subOrder.setSkuId(order.getSkuId());
+                                    subOrder.setItemNo(StringUtils.isEmpty(itemNo) ? itemBarcode : itemNo);
+                                    subOrder.setSkuNo(StringUtils.isEmpty(skuNo) ? skuBarcode : skuNo);
+                                    subOrder.setNum(order.getNum());
+                                    subOrder.setPrice(MoneyUtil.YuanStr2Cent(order.getPrice()));
+                                    subOrder.setDiscountPrice(MoneyUtil.YuanStr2Cent(order.getDiscountPrice()));
+                                    subOrder.setTotalAmount(MoneyUtil.YuanStr2Cent(order.getTotalFee()));
+                                    subOrder.setPayment(MoneyUtil.YuanStr2Cent(order.getPayment()));
+                                    subOrder.setTitle(order.getTitle());
+                                    subOrder.setOutOid(order.getOuterOid());
+                                    subOrder.setDaogous(order.getDaogous());
+                                    yzOidList.add(subOrder);
+                                }
                                 yzOrderDetail.setOidList(yzOidList);
                                 youzanOrderDetail.setTidDetail(JSON.toJSONString(yzOrderDetail));
                                 youzanOrderDetail.setStatus(DETAIL_STATUS_QUERIED);
@@ -914,7 +916,7 @@ public class KaiLeShiOrderAlignController {
         MediaType mediaType = MediaType.parse("application/json");
         okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\"tid\":\"%s\"}", tid));
         Request request = new Request.Builder()
-                .url("https://open-pre.youzanyun.com/api/youzan.trade.get/4.0.2?access_token=9148af1d905f09244aafcb298954af3")
+                .url("https://open.youzanyun.com/api/youzan.trade.get/4.0.2?access_token=9148af1d905f09244aafcb298954af3")
                 .method("POST", body)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Cookie", "acw_tc=064c13bee4b4da2a4c388a22d53d56e15eaacc2d04ef5b64685587cc076b0b4c")
