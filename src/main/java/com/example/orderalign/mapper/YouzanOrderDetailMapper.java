@@ -42,8 +42,9 @@ public interface YouzanOrderDetailMapper {
     /**
      * 根据tid查询
      * @param tid
+     * @param appId
      * @return
      */
-    YouzanOrderDetail selectByTid(@Param("tid") String tid);
+    YouzanOrderDetail selectByTid(@Param("appId") String appId, @Param("tid") String tid);
 
 }

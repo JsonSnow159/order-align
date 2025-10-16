@@ -34,7 +34,7 @@ public interface KaiLeShiOrderAlignMapper {
      * @param limit
      * @return
      */
-    List<KaiLeShiOrderAlign> selectByStatusWithLimit(@Param("appId") String appId, @Param("status") Integer status, @Param("limit") int limit);
+    List<KaiLeShiOrderAlign> selectByStatusWithLimit(@Param("status") Integer status, @Param("limit") int limit);
 
     /**
      * 更新

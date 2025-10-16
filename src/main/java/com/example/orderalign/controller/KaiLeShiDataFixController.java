@@ -90,11 +90,11 @@ public class KaiLeShiDataFixController {
                 CompletableFuture<Void> future1 = CompletableFuture.runAsync(() -> kaiLeShiOrderAlignController.queryOutDetail(dto), innerExecutor);
                 CompletableFuture<Void> future2 = CompletableFuture.runAsync(() -> kaiLeShiOrderAlignController.queryTid(dto), innerExecutor);
                 CompletableFuture<Void> future3 = CompletableFuture.runAsync(() -> kaiLeShiOrderAlignController.queryYzDetail(dto), innerExecutor);
-                CompletableFuture<Void> future4 = CompletableFuture.runAsync(() -> kaiLeShiOrderAlignController.detailAlign(dto), innerExecutor);
+//                CompletableFuture<Void> future4 = CompletableFuture.runAsync(() -> kaiLeShiOrderAlignController.detailAlign(dto), innerExecutor);
 
                 // Wait for all 4 parallel tasks in this iteration to complete
-                CompletableFuture.allOf(future1, future2, future3, future4).join();
-//                CompletableFuture.allOf(future1, future2, future3).join();
+//                CompletableFuture.allOf(future1, future2, future3, future4).join();
+                CompletableFuture.allOf(future1,future2,future3).join();
 
                 log.debug("Parallel data fix iteration completed.");
 

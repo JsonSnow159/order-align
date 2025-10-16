@@ -212,7 +212,7 @@ public class KaiLeShiOrderAlignController {
         }
 
         try {
-            List<KaiLeShiOrderAlign> pendingOrders = kaiLeShiOrderAlignMapper.selectByStatusWithLimit(appId, STATUS_PENDING, BATCH_SIZE);
+            List<KaiLeShiOrderAlign> pendingOrders = kaiLeShiOrderAlignMapper.selectByStatusWithLimit(STATUS_PENDING, BATCH_SIZE);
             if (CollectionUtils.isEmpty(pendingOrders)) {
                 log.info("没有需要处理的订单");
                 return YzCloudResponse.success();
@@ -224,17 +224,11 @@ public class KaiLeShiOrderAlignController {
                     .map(orderAlign -> CompletableFuture.runAsync(() -> {
                         try {
                             String outTid = orderAlign.getOutTid();
-                            String tid = orderAlign.getTid();
 
                             ThirdPartyOrderDetail thirdPartyOrderDetail = new ThirdPartyOrderDetail();
                             thirdPartyOrderDetail.setAppId(appId);
                             thirdPartyOrderDetail.setKdtId(rootKdtId);
                             thirdPartyOrderDetail.setOutTid(outTid);
-
-                            YouzanOrderDetail youzanOrderDetail = new YouzanOrderDetail();
-                            youzanOrderDetail.setAppId(appId);
-                            youzanOrderDetail.setKdtId(rootKdtId);
-                            youzanOrderDetail.setTid(tid);
 
                             KaileshiOrderQueryResponseDTO kaileshiOrderQueryResponse = new KaileshiOrderQueryResponseDTO();
                             String kylinOrderDetailStr = kylinOrderDetailQuery(outTid);
@@ -349,7 +343,7 @@ public class KaiLeShiOrderAlignController {
 
         try {
             String appId = param.getAppId();
-            List<KaiLeShiOrderAlign> pendingOrders = kaiLeShiOrderAlignMapper.selectByStatusWithLimit(appId, STATUS_OUT_DETAIL_QUERIED, BATCH_SIZE);
+            List<KaiLeShiOrderAlign> pendingOrders = kaiLeShiOrderAlignMapper.selectByStatusWithLimit(STATUS_OUT_DETAIL_QUERIED, BATCH_SIZE);
             if (CollectionUtils.isEmpty(pendingOrders)) {
                 log.info("没有需要处理的订单");
                 return YzCloudResponse.success();
@@ -412,7 +406,7 @@ public class KaiLeShiOrderAlignController {
         }
 
         try {
-            List<KaiLeShiOrderAlign> pendingOrders = kaiLeShiOrderAlignMapper.selectByStatusWithLimit(appId, STATUS_FOUND, BATCH_SIZE);
+            List<KaiLeShiOrderAlign> pendingOrders = kaiLeShiOrderAlignMapper.selectByStatusWithLimit(STATUS_FOUND, BATCH_SIZE);
             if (CollectionUtils.isEmpty(pendingOrders)) {
                 log.info("没有需要处理的订单");
                 return YzCloudResponse.success();
@@ -550,7 +544,7 @@ public class KaiLeShiOrderAlignController {
             throw new RecoverableException("获取锁失败");
         }
         try {
-            List<KaiLeShiOrderAlign> pendingOrders = kaiLeShiOrderAlignMapper.selectByStatusWithLimit(appId, STATUS_DETAIL_QUERIED, BATCH_SIZE);
+            List<KaiLeShiOrderAlign> pendingOrders = kaiLeShiOrderAlignMapper.selectByStatusWithLimit(STATUS_DETAIL_QUERIED, BATCH_SIZE);
             if (CollectionUtils.isEmpty(pendingOrders)) {
                 log.info("没有需要处理的订单");
                 return YzCloudResponse.success();
@@ -573,8 +567,8 @@ public class KaiLeShiOrderAlignController {
                                 Long id = kaiLeShiOrderAlignResult.getId();
                                 kaiLeShiOrderAlignResultMapper.deleteByPrimaryKey(id);
                             }
-                            YouzanOrderDetail youzanOrderDetail = youzanOrderDetailMapper.selectByTid(tid);
-                            ThirdPartyOrderDetail thirdPartyOrderDetail = thirdPartyOrderDetailMapper.selectByOutTid(outTid);
+                            YouzanOrderDetail youzanOrderDetail = youzanOrderDetailMapper.selectByTid(appId, tid);
+                            ThirdPartyOrderDetail thirdPartyOrderDetail = thirdPartyOrderDetailMapper.selectByOutTid(appId, outTid);
 
                             if (Objects.isNull(youzanOrderDetail) || StringUtils.isBlank(youzanOrderDetail.getTidDetail())) {
                                 log.error("有赞订单详情不存在, tid: {}", tid);
@@ -943,9 +937,14 @@ public class KaiLeShiOrderAlignController {
                 .addHeader("Content-Type", "application/json")
                 .build();
 
-        Response response = client.newCall(request).execute();
-        String responseStr = response.body().string();
-        return responseStr;
+        try {
+            Response response = client.newCall(request).execute();
+            String responseStr = response.body().string();
+            return responseStr;
+        } catch (IOException e) {
+            log.error("数云订单查询超时,tid:{}", outTid, e);
+            throw new RuntimeException(e);
+        }
     }
 
     public static String queryEanCode(String itemNo, String skuNo) throws IOException {
@@ -959,7 +958,7 @@ public class KaiLeShiOrderAlignController {
         Request request = new Request.Builder()
                 .url(url)
                 .method("GET", null)
-                .addHeader("X-Caller-Sign", SignUtil.generateSign(callService, contextPath, "v1", timeStamp, serviceSecret, "/youzan/member/order/page"))
+                .addHeader("X-Caller-Sign", SignUtil.generateSign(callService, contextPath, "v1", timeStamp, serviceSecret, "/youzan/member/product/list"))
                 .addHeader("X-Caller-Timestamp", timeStamp)
                 .addHeader("X-Caller-Service", callService)
                 .addHeader("Content-Type", "application/json")

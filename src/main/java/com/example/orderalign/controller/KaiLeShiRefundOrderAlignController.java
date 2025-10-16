@@ -494,8 +494,8 @@ public class KaiLeShiRefundOrderAlignController {
                                     kaiLeShiNoSourceRefundOrderAlignResultMapper.deleteByPrimaryKey(id);
                                 }
 
-                                YouzanOrderDetail youzanOrderDetail = youzanOrderDetailMapper.selectByTid(refundId);
-                                ThirdPartyOrderDetail thirdPartyOrderDetail = thirdPartyOrderDetailMapper.selectByOutTid(outRefundId);
+                                YouzanOrderDetail youzanOrderDetail = youzanOrderDetailMapper.selectByTid(appId, refundId);
+                                ThirdPartyOrderDetail thirdPartyOrderDetail = thirdPartyOrderDetailMapper.selectByOutTid(appId, outRefundId);
 
                                 if (Objects.isNull(youzanOrderDetail) || StringUtils.isBlank(youzanOrderDetail.getTidDetail())) {
                                     log.error("有赞订单详情不存在, refundId: {}", refundId);
@@ -673,8 +673,8 @@ public class KaiLeShiRefundOrderAlignController {
                                     Long id = kaiLeShiRefundOrderAlignResult.getId();
                                     kaiLeShiRefundOrderAlignResultMapper.deleteByPrimaryKey(id);
                                 }
-                                YouzanOrderDetail youzanOrderDetail = youzanOrderDetailMapper.selectByTid(refundId);
-                                ThirdPartyOrderDetail thirdPartyOrderDetail = thirdPartyOrderDetailMapper.selectByOutTid(outRefundId);
+                                YouzanOrderDetail youzanOrderDetail = youzanOrderDetailMapper.selectByTid(appId, refundId);
+                                ThirdPartyOrderDetail thirdPartyOrderDetail = thirdPartyOrderDetailMapper.selectByOutTid(appId, outRefundId);
 
                                 if (Objects.isNull(youzanOrderDetail) || StringUtils.isBlank(youzanOrderDetail.getTidDetail())) {
                                     log.error("有赞订单详情不存在, refundId: {}", refundId);

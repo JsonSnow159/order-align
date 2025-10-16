@@ -42,8 +42,9 @@ public interface ThirdPartyOrderDetailMapper {
     /**
      * 根据outTid查询
      * @param outTid
+     * @param appId
      * @return
      */
-    ThirdPartyOrderDetail selectByOutTid(@Param("outTid") String outTid);
+    ThirdPartyOrderDetail selectByOutTid(@Param("appId") String appId, @Param("outTid") String outTid);
 
 }
