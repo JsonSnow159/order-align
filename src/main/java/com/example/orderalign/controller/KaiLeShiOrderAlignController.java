@@ -916,7 +916,7 @@ public class KaiLeShiOrderAlignController {
         MediaType mediaType = MediaType.parse("application/json");
         okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\"tid\":\"%s\"}", tid));
         Request request = new Request.Builder()
-                .url("https://open.youzanyun.com/api/youzan.trade.get/4.0.2?access_token=9148af1d905f09244aafcb298954af3")
+                .url("https://open.youzanyun.com/api/youzan.trade.get/4.0.2?access_token=472df04b17a2866d56f75b914b39b11")
                 .method("POST", body)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Cookie", "acw_tc=064c13bee4b4da2a4c388a22d53d56e15eaacc2d04ef5b64685587cc076b0b4c")
