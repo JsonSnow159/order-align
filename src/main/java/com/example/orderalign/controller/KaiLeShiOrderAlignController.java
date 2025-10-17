@@ -46,6 +46,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.redisson.api.RBucket;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -605,20 +606,10 @@ public class KaiLeShiOrderAlignController {
                             String payDateStr = DateFormatUtil.parseDate2Str(payDate);
                             result.setPayTimeResult(String.valueOf(Objects.equals(yzOrderDetail.getPayTime(), payDateStr)));
 
-                            //应付金额
-                            result.setYzTotalAmount(yzOrderDetail.getTotalAmount());
-                            result.setOutTotalAmount(outOrderDetail.getTotalAmount());
-                            result.setTotalAmountResult(String.valueOf(Objects.equals(yzOrderDetail.getTotalAmount(), outOrderDetail.getTotalAmount())));
+                            Long outTotalAmount = 0L;
+                            Long outTotalPayAmount = 0L;
+                            Long outTotalDiscountAmount = 0L;
 
-                            //实付金额
-                            result.setYzPayment(yzOrderDetail.getTotalPayAmount());
-                            result.setOutPayment(outOrderDetail.getTotalPayAmount());
-                            result.setPaymentResult(String.valueOf(Objects.equals(yzOrderDetail.getTotalPayAmount(), outOrderDetail.getTotalPayAmount())));
-
-                            //优惠金额
-                            result.setYzDiscountAmount(yzOrderDetail.getTotalDiscountAmount());
-                            result.setOutDiscountAmount(outOrderDetail.getTotalDiscountAmount());
-                            result.setDiscountAmountResult(String.valueOf(Objects.equals(yzOrderDetail.getTotalDiscountAmount(), outOrderDetail.getTotalDiscountAmount())));
 
                             // Member alignment
                             result.setYzMemberId(yzOrderDetail.getYzOpenId());
@@ -718,7 +709,7 @@ public class KaiLeShiOrderAlignController {
                                 //转换69码
                                 String outSkuNo = outOrder.getSkuNo();
                                 if (StringUtils.isNotBlank(outSkuNo)) {
-                                    org.redisson.api.RBucket<String> skuCodeBucket = redissonClient.getBucket(outSkuNo);
+                                    RBucket<String> skuCodeBucket = redissonClient.getBucket(outSkuNo);
                                     String skuCode = skuCodeBucket.get();
                                     if (StringUtils.isBlank(skuCode)) {
                                         String eanCode = queryEanCode(outItemNo, outSkuNo);
@@ -732,13 +723,15 @@ public class KaiLeShiOrderAlignController {
 
                                 String yzOutOid = outOrder.getOutOid();
                                 Long totalFee = Math.abs(outOrder.getTotalFee());
+                                outTotalAmount += totalFee;
                                 Long outPayment = Math.abs(outOrder.getPayment());
+                                outPayment += outPayment;
                                 outNum = Math.abs(outNum);
                                 // 商品原价
                                 Long outPrice = KaileshiUtil.handlePrice(MoneyUtil.centToYuan(totalFee).doubleValue(), outNum);
                                 // 单商品现价（原价减去优惠后的金额）
                                 Long outDiscountPrice = KaileshiUtil.handlePrice(MoneyUtil.centToYuan(outPayment).doubleValue(), outNum);
-
+                                outTotalDiscountAmount += totalFee - outPayment;
                                 boolean itemNoAlign = true;
                                 boolean itemNumAlign = true;
                                 boolean itemPriceAlign = true;
@@ -818,6 +811,21 @@ public class KaiLeShiOrderAlignController {
                                 result.setSubOrderResult("子订单一致");
                             }
 
+                            //应付金额
+                            result.setYzTotalAmount(yzOrderDetail.getTotalAmount());
+                            result.setOutTotalAmount(outTotalAmount);
+                            result.setTotalAmountResult(String.valueOf(Objects.equals(yzOrderDetail.getTotalAmount(), outOrderDetail.getTotalAmount())));
+
+                            //实付金额
+                            result.setYzPayment(yzOrderDetail.getTotalPayAmount());
+                            result.setOutPayment(outTotalPayAmount);
+                            result.setPaymentResult(String.valueOf(Objects.equals(yzOrderDetail.getTotalPayAmount(), outOrderDetail.getTotalPayAmount())));
+
+                            //优惠金额
+                            result.setYzDiscountAmount(yzOrderDetail.getTotalDiscountAmount());
+                            result.setOutDiscountAmount(outTotalDiscountAmount);
+                            result.setDiscountAmountResult(String.valueOf(Objects.equals(yzOrderDetail.getTotalDiscountAmount(), outOrderDetail.getTotalDiscountAmount())));
+
                             String daogouResult = "true";
                             String guideCode = outOrderDetail.getGuideCode();
                             if (CollectionUtils.isNotEmpty(guideNos)) {
@@ -829,11 +837,12 @@ public class KaiLeShiOrderAlignController {
                                 for (String outGuideCode : outGuideCodes) {
                                     String yzOpenId = null;
                                     String cacheKey = "kaileshi:guide_yz_open_id:" + kdtId + ":" + outGuideCode;
-                                    org.redisson.api.RBucket<String> bucket = redissonClient.getBucket(cacheKey);
+                                    RBucket<String> bucket = redissonClient.getBucket(cacheKey);
                                     yzOpenId = bucket.get();
 
                                     if (yzOpenId == null) { // Cache Miss
-                                        ShoppingGuideRelationDO shoppingGuideRelation = infraShoppingGuideRelationMapper.getBySellerId(kdtId, outGuideCode);
+                                        String mobile2YzOpenId = queryYzOpenId(outGuideCode);
+                                        ShoppingGuideRelationDO shoppingGuideRelation = infraShoppingGuideRelationMapper.getBySellerId(kdtId, mobile2YzOpenId);
                                         if (Objects.nonNull(shoppingGuideRelation) && StringUtils.isNotBlank(shoppingGuideRelation.getYzOpenId())) {
                                             yzOpenId = shoppingGuideRelation.getYzOpenId();
                                             bucket.set(yzOpenId, 24, TimeUnit.HOURS); // Cache the found yzOpenId
@@ -919,6 +928,22 @@ public class KaiLeShiOrderAlignController {
         String responseStr = response.body().string();
         return responseStr;
     }
+
+    public static String queryYzOpenId(String mobile) throws IOException {
+        MediaType mediaType = MediaType.parse("application/json");
+        okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\"fields\":\"user_base\",\"is_do_ext_point\":false,\"account_info\":{\"account_id\":\"%s\",\"account_type\":2}}",mobile));
+        Request request = new Request.Builder()
+                .url("https://open.youzanyun.com/api/youzan.scrm.customer.detail.get/1.0.1?access_token=472df04b17a2866d56f75b914b39b11")
+                .method("POST", body)
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Cookie", "acw_tc=92a8083254e69a13319c5b46cd8c54db382a5c7ff40aa5e976b0d9f6f8f7f0b4")
+                .build();
+        Response response = client.newCall(request).execute();
+        String responseStr = response.body().string();
+        return responseStr;
+    }
+
+
 
     public static String kylinOrderDetailQuery(String outTid) throws IOException {
         String timeStamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
