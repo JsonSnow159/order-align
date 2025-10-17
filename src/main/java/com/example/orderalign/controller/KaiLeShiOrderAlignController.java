@@ -37,6 +37,7 @@ import com.youzan.cloud.connector.sdk.infra.dal.mapper.InfraOrderRelationMapper;
 import com.youzan.cloud.connector.sdk.infra.dal.mapper.InfraShoppingGuideRelationMapper;
 import com.youzan.cloud.connector.sdk.infra.dal.mapper.InfraUserRelationMapper;
 import com.youzan.cloud.connector.sdk.infra.dal.mapper.ShopRelationMapper;
+import com.youzan.cloud.open.sdk.gen.v1_0_1.model.YouzanScrmCustomerDetailGetResult;
 import com.youzan.cloud.open.sdk.gen.v4_0_1.model.YouzanTradeGetResult;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -841,7 +842,12 @@ public class KaiLeShiOrderAlignController {
                                     yzOpenId = bucket.get();
 
                                     if (yzOpenId == null) { // Cache Miss
-                                        String mobile2YzOpenId = queryYzOpenId(outGuideCode);
+                                        String yzOpenIdQueryStr = queryYzOpenId(outGuideCode);
+                                        YouzanScrmCustomerDetailGetResult customerDetailGetResult = JSON.parseObject(yzOpenIdQueryStr, YouzanScrmCustomerDetailGetResult.class);
+                                        String mobile2YzOpenId = outGuideCode;
+                                        if(customerDetailGetResult.getSuccess() && Objects.nonNull(customerDetailGetResult.getData())) {
+                                            mobile2YzOpenId = customerDetailGetResult.getData().getYzOpenId();
+                                        }
                                         ShoppingGuideRelationDO shoppingGuideRelation = infraShoppingGuideRelationMapper.getBySellerId(kdtId, mobile2YzOpenId);
                                         if (Objects.nonNull(shoppingGuideRelation) && StringUtils.isNotBlank(shoppingGuideRelation.getYzOpenId())) {
                                             yzOpenId = shoppingGuideRelation.getYzOpenId();
