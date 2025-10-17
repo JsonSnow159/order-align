@@ -725,7 +725,7 @@ public class KaiLeShiOrderAlignController {
                                 Long totalFee = Math.abs(outOrder.getTotalFee());
                                 outTotalAmount += totalFee;
                                 Long outPayment = Math.abs(outOrder.getPayment());
-                                outPayment += outPayment;
+                                outTotalPayAmount += outPayment;
                                 outNum = Math.abs(outNum);
                                 // 商品原价
                                 Long outPrice = KaileshiUtil.handlePrice(MoneyUtil.centToYuan(totalFee).doubleValue(), outNum);
