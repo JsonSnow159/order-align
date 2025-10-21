@@ -260,7 +260,8 @@ public class KaiLeShiRefundOrderAlignController {
                             outOrderDetail.setPayTime(kaileshiOrderQueryResponse.getRefundTime());
 
                             List<OutOrderDetail.SubOrder> oidList = new ArrayList<>();
-                            List<KaileshiOrderRefundQuerySubItemResponseDTO> orderItems = kaileshiOrderQueryResponse.getRefundOrderItems();
+                            List<KaileshiOrderRefundQuerySubItemResponseDTO> orderItems = normalRefundOrderItems;
+//                            List<KaileshiOrderRefundQuerySubItemResponseDTO> orderItems = kaileshiOrderQueryResponse.getRefundOrderItems();
                             for (KaileshiOrderRefundQuerySubItemResponseDTO orderItem : orderItems) {
                                 OutOrderDetail.SubOrder subOrder = new OutOrderDetail.SubOrder();
                                 subOrder.setNum(orderItem.getQuantity());
