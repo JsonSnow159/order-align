@@ -60,7 +60,7 @@
         select
         <include refid="Base_Column_List"/>
         from youzan_order_detail
-        where tid = #{tid,jdbcType=VARCHAR}
+        where app_id = #{appId,jdbcType=VARCHAR} and tid = #{tid,jdbcType=VARCHAR}
     </select>
 
 </mapper>

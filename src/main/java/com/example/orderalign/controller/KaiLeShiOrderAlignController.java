@@ -646,9 +646,6 @@ public class KaiLeShiOrderAlignController {
                                 case "POS":
                                     finalChannelStr = "POS";
                                     break;
-                                case "O2O":
-                                    finalChannelStr = "O2O";
-                                    break;
                                 case "JD":
                                     finalChannelStr = "JD";
                                     break;
@@ -657,7 +654,11 @@ public class KaiLeShiOrderAlignController {
                                     break;
                             }
                             result.setOutChannel(outOrderDetail.getChannel());
-                            result.setChannelResult(String.valueOf(Objects.equals(finalChannelStr, result.getOutChannel())));
+                            String outChannel = outOrderDetail.getChannel();
+                            if (Objects.equals("O2O", outChannel)) {
+                                outChannel = "POS";
+                            }
+                            result.setChannelResult(String.valueOf(Objects.equals(finalChannelStr, outChannel)));
 
                             // Shop alignment
                             Long kdtId = yzOrderDetail.getKdtId();
@@ -815,17 +816,17 @@ public class KaiLeShiOrderAlignController {
                             //应付金额
                             result.setYzTotalAmount(yzOrderDetail.getTotalAmount());
                             result.setOutTotalAmount(outTotalAmount);
-                            result.setTotalAmountResult(String.valueOf(Objects.equals(yzOrderDetail.getTotalAmount(), outOrderDetail.getTotalAmount())));
+                            result.setTotalAmountResult(String.valueOf(Objects.equals(yzOrderDetail.getTotalAmount(), outTotalAmount)));
 
                             //实付金额
                             result.setYzPayment(yzOrderDetail.getTotalPayAmount());
                             result.setOutPayment(outTotalPayAmount);
-                            result.setPaymentResult(String.valueOf(Objects.equals(yzOrderDetail.getTotalPayAmount(), outOrderDetail.getTotalPayAmount())));
+                            result.setPaymentResult(String.valueOf(Objects.equals(yzOrderDetail.getTotalPayAmount(), outTotalPayAmount)));
 
                             //优惠金额
                             result.setYzDiscountAmount(yzOrderDetail.getTotalDiscountAmount());
                             result.setOutDiscountAmount(outTotalDiscountAmount);
-                            result.setDiscountAmountResult(String.valueOf(Objects.equals(yzOrderDetail.getTotalDiscountAmount(), outOrderDetail.getTotalDiscountAmount())));
+                            result.setDiscountAmountResult(String.valueOf(Objects.equals(yzOrderDetail.getTotalDiscountAmount(), outTotalDiscountAmount)));
 
                             String daogouResult = "true";
                             String guideCode = outOrderDetail.getGuideCode();
@@ -837,18 +838,18 @@ public class KaiLeShiOrderAlignController {
                                 String[] outGuideCodes = guideCode.split(",");
                                 for (String outGuideCode : outGuideCodes) {
                                     String yzOpenId = null;
-                                    String cacheKey = "kaileshi:guide_yz_open_id:" + kdtId + ":" + outGuideCode;
+                                    String cacheKey = "kaileshi:guide_yz_open_id1:" + rootKdtId + ":" + outGuideCode;
                                     RBucket<String> bucket = redissonClient.getBucket(cacheKey);
                                     yzOpenId = bucket.get();
 
-                                    if (yzOpenId == null) { // Cache Miss
+                                    if (StringUtils.isBlank(yzOpenId)) { // Cache Miss
                                         String yzOpenIdQueryStr = queryYzOpenId(outGuideCode);
                                         YouzanScrmCustomerDetailGetResult customerDetailGetResult = JSON.parseObject(yzOpenIdQueryStr, YouzanScrmCustomerDetailGetResult.class);
                                         String mobile2YzOpenId = outGuideCode;
-                                        if(customerDetailGetResult.getSuccess() && Objects.nonNull(customerDetailGetResult.getData())) {
+                                        if (customerDetailGetResult.getSuccess() && Objects.nonNull(customerDetailGetResult.getData())) {
                                             mobile2YzOpenId = customerDetailGetResult.getData().getYzOpenId();
                                         }
-                                        ShoppingGuideRelationDO shoppingGuideRelation = infraShoppingGuideRelationMapper.getBySellerId(kdtId, mobile2YzOpenId);
+                                        ShoppingGuideRelationDO shoppingGuideRelation = infraShoppingGuideRelationMapper.getBySellerId(rootKdtId, mobile2YzOpenId);
                                         if (Objects.nonNull(shoppingGuideRelation) && StringUtils.isNotBlank(shoppingGuideRelation.getYzOpenId())) {
                                             yzOpenId = shoppingGuideRelation.getYzOpenId();
                                             bucket.set(yzOpenId, 24, TimeUnit.HOURS); // Cache the found yzOpenId
@@ -937,7 +938,7 @@ public class KaiLeShiOrderAlignController {
 
     public static String queryYzOpenId(String mobile) throws IOException {
         MediaType mediaType = MediaType.parse("application/json");
-        okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\"fields\":\"user_base\",\"is_do_ext_point\":false,\"account_info\":{\"account_id\":\"%s\",\"account_type\":2}}",mobile));
+        okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\"fields\":\"user_base\",\"is_do_ext_point\":false,\"account_info\":{\"account_id\":\"%s\",\"account_type\":2}}", mobile));
         Request request = new Request.Builder()
                 .url("https://open.youzanyun.com/api/youzan.scrm.customer.detail.get/1.0.1?access_token=472df04b17a2866d56f75b914b39b11")
                 .method("POST", body)
@@ -948,7 +949,6 @@ public class KaiLeShiOrderAlignController {
         String responseStr = response.body().string();
         return responseStr;
     }
-
 
 
     public static String kylinOrderDetailQuery(String outTid) throws IOException {

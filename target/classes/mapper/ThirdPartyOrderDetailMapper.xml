@@ -60,7 +60,7 @@
         select
         <include refid="Base_Column_List"/>
         from third_party_order_detail
-        where out_tid = #{outTid,jdbcType=VARCHAR}
+        where app_id = #{appId} and out_tid = #{outTid,jdbcType=VARCHAR}
     </select>
 
 </mapper>

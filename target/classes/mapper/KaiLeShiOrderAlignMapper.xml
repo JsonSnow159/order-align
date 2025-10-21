@@ -33,7 +33,7 @@
         select
         <include refid="Base_Column_List"/>
         from kaileshi_order_align
-        where app_id = #{appId,jdbcType=VARCHAR} and status = #{status,jdbcType=INTEGER}
+        where status = #{status,jdbcType=INTEGER}
         limit #{limit,jdbcType=INTEGER}
     </select>
 
