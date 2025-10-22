@@ -749,6 +749,9 @@ public class KaiLeShiOrderAlignController {
                                         String yzSkuNo = yzOid.getSkuNo();
                                         if (StringUtils.isBlank(outSkuNo) && StringUtils.isNotBlank(yzSkuNo)) {
                                             itemNoAlign = false;
+                                        } else if (Objects.equals(outItemNo, yzItemNo) && yzSkuNo.startsWith("K") && outSkuNo.startsWith("69")) {
+                                            //有赞为K开头，三方为69开头，视为一致
+                                            itemNoAlign = true;
                                         } else if (!(Objects.equals(outItemNo, yzItemNo) && Objects.equals(outSkuNo, yzSkuNo))) {
                                             itemNoAlign = false;
                                         }
