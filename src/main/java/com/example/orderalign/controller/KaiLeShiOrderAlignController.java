@@ -655,7 +655,7 @@ public class KaiLeShiOrderAlignController {
                             }
                             result.setOutChannel(outOrderDetail.getChannel());
                             String outChannel = outOrderDetail.getChannel();
-                            if (Objects.equals("O2O", outChannel)) {
+                            if (Objects.equals("O2O", outChannel) || Objects.equals("E3", outChannel)) {
                                 outChannel = "POS";
                             }
                             result.setChannelResult(String.valueOf(Objects.equals(finalChannelStr, outChannel)));
