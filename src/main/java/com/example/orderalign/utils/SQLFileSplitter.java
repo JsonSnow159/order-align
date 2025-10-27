@@ -5,8 +5,15 @@ import java.io.*;
 public class SQLFileSplitter {
 
     public static void main(String[] args) {
-        String sourceFile = "/Users/app/Downloads/kylin.sql";
-        String outputDir = "/Users/app/Downloads/凯乐石相关/全量子订单";
+        // =================================================================================
+        // =========================== 请在这里修改为你自己的文件路径 ==========================
+        // =================================================================================
+        // sourceFile:  你的那个 2.1GB 的 SQL 源文件的完整路径
+        String sourceFile = "/PATH/TO/YOUR/2.1GB_FILE.sql";
+        // outputDir:   你希望分割后的小文件存放的目录的完整路径
+        String outputDir = "/PATH/TO/YOUR/output_directory";
+        // =================================================================================
+
         String fileNamePrefix = "chunk_";           // 分割后文件前缀
         String fileExtension = ".sql";              // 文件扩展名
         int linesPerFile = 200000;                   // 每个文件的行数
