@@ -5,8 +5,8 @@ import java.io.*;
 public class SQLFileSplitter {
 
     public static void main(String[] args) {
-        String sourceFile = "/Users/app/Downloads/主退单的副本.xls";
-        String outputDir = "/Users/app/Downloads/凯乐石相关/全量退单";
+        String sourceFile = "/Users/app/Downloads/kylin.sql";
+        String outputDir = "/Users/app/Downloads/凯乐石相关/全量子订单";
         String fileNamePrefix = "chunk_";           // 分割后文件前缀
         String fileExtension = ".sql";              // 文件扩展名
         int linesPerFile = 200000;                   // 每个文件的行数
@@ -50,7 +50,7 @@ public class SQLFileSplitter {
                     if (writer != null) {
                         writer.close();
                     }
-                    String outputFilePath = outputDirectory + prefix + fileCounter + extension;
+                    String outputFilePath = outputDirectory + File.separator + prefix + fileCounter + extension;
                     writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputFilePath), "UTF-8"));
                     fileCounter++;
                 }
