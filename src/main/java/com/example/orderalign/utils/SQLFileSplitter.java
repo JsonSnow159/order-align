@@ -9,15 +9,15 @@ public class SQLFileSplitter {
         // =========================== 请在这里修改为你自己的文件路径 ==========================
         // =================================================================================
         // sourceFile:  你的 SQL 源文件的完整路径
-        String sourceFile = "/Users/jincaiwu/Downloads/kylin.sql";
+        String sourceFile = "/Users/app/Downloads/kylin.sql";
         // outputDir:   你希望分割后的小文件存放的目录的完整路径
-        String outputDir = "/Users/jincaiwu/Downloads/凯乐石相关/全量子订单";
+        String outputDir = "/Users/app/Downloads/凯乐石相关/全量子订单";
         // =================================================================================
 
         String fileNamePrefix = "insert_chunk_";
         String fileExtension = ".sql";
         // 每个分割文件包含的 INSERT 语句数量
-        int insertsPerFile = 100;
+        int insertsPerFile = 25;
 
         extractAndSplitInsertStatements(sourceFile, outputDir, fileNamePrefix, fileExtension, insertsPerFile);
     }

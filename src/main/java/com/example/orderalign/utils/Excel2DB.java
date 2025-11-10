@@ -16,7 +16,7 @@ import java.util.Map;
 
 public class Excel2DB {
 
-    private static final String UPLOAD_URL = "http://localhost:8091/kls/upload";
+    private static final String UPLOAD_URL = "http://localhost:8091/kaileshi/uploadOrder";
     private static final RestTemplate restTemplate = new RestTemplate();
     private static final int BATCH_SIZE = 500;
 
@@ -25,7 +25,7 @@ public class Excel2DB {
      * @param args Command line arguments. Expects one argument: the path to the directory containing Excel files.
      */
     public static void main(String[] args) {
-        String directoryPath = "";
+        String directoryPath = "/Users/app/Downloads/凯乐石相关/全量正单";
         System.out.println("Starting to process files from: " + directoryPath);
         readFromExcelAndUpload(directoryPath);
         System.out.println("Finished processing all files.");
@@ -74,6 +74,8 @@ public class Excel2DB {
 
     private static void uploadBatch(List<String> outTidList) {
         OrderAlignDTO orderAlignDTO = new OrderAlignDTO();
+        orderAlignDTO.setAppId("42243307_kylin");
+        orderAlignDTO.setRootKdtId(42243307L);
         orderAlignDTO.setOutTidList(outTidList);
 
         HttpHeaders headers = new HttpHeaders();
