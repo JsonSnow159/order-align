@@ -208,6 +208,12 @@ public class KaiLeShiRefundOrderAlignController {
                             KaileshiRefundOrderQueryResponseDTO kaileshiOrderQueryResponse = new KaileshiRefundOrderQueryResponseDTO();
                             String kylinOrderDetailStr = this.kylinRefundOrderDetailQuery(outRefundId);
                             if (StringUtils.isNotBlank(kylinOrderDetailStr)) {
+                                if (JSON.parseObject(kylinOrderDetailStr).getJSONArray("data").size() == 0) {
+                                    orderAlign.setStatus(STATUS_NOT_FOUND);
+                                    kaiLeShiOrderRefundAlignMapper.update(orderAlign);
+                                    log.warn("查询数云订单详情失败, outTid: {}", outRefundId);
+                                    return;
+                                }
                                 kaileshiOrderQueryResponse = JSON.parseObject(JSON.toJSONString(JSON.parseObject(kylinOrderDetailStr).getJSONArray("data").getJSONObject(0)), KaileshiRefundOrderQueryResponseDTO.class);
                             }
                             if (Objects.isNull(kaileshiOrderQueryResponse)) {
@@ -260,8 +266,8 @@ public class KaiLeShiRefundOrderAlignController {
                             outOrderDetail.setPayTime(kaileshiOrderQueryResponse.getRefundTime());
 
                             List<OutOrderDetail.SubOrder> oidList = new ArrayList<>();
-                            List<KaileshiOrderRefundQuerySubItemResponseDTO> orderItems = normalRefundOrderItems;
-//                            List<KaileshiOrderRefundQuerySubItemResponseDTO> orderItems = kaileshiOrderQueryResponse.getRefundOrderItems();
+//                            List<KaileshiOrderRefundQuerySubItemResponseDTO> orderItems = normalRefundOrderItems;
+                            List<KaileshiOrderRefundQuerySubItemResponseDTO> orderItems = kaileshiOrderQueryResponse.getRefundOrderItems();
                             for (KaileshiOrderRefundQuerySubItemResponseDTO orderItem : orderItems) {
                                 OutOrderDetail.SubOrder subOrder = new OutOrderDetail.SubOrder();
                                 subOrder.setNum(orderItem.getQuantity());
@@ -277,8 +283,16 @@ public class KaiLeShiRefundOrderAlignController {
                             outOrderDetail.setOidList(oidList);
                             thirdPartyOrderDetail.setOutTidDetail(JSON.toJSONString(outOrderDetail));
                             thirdPartyOrderDetail.setStatus(DETAIL_STATUS_QUERIED);
+                            try {
+                                thirdPartyOrderDetailMapper.insert(thirdPartyOrderDetail);
+                            } catch (Exception e) {
+                                if (e.getMessage().contains("Duplicate entry")) {
+                                    log.info("插入成功");
+                                } else {
+                                    throw e;
+                                }
+                            }
 
-                            thirdPartyOrderDetailMapper.insert(thirdPartyOrderDetail);
                             //三方详情已查询
                             orderAlign.setStatus(STATUS_OUT_DETAIL_QUERIED);
                             orderAlign.setType("正常退单");
@@ -865,7 +879,7 @@ public class KaiLeShiRefundOrderAlignController {
         MediaType mediaType = MediaType.parse("application/json");
         okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\"refund_id\":\"%s\"}", refundId));
         Request request = new Request.Builder()
-                .url("https://open.youzanyun.com/api/youzan.trade.refund.get/3.0.0?access_token=472df04b17a2866d56f75b914b39b11")
+                .url("https://open.youzanyun.com/api/youzan.trade.refund.get/3.0.0?access_token=6f9403ac56623bd7890c4d8f6a6d19a")
                 .method("POST", body)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Cookie", "acw_tc=064c13bee4b4da2a4c388a22d53d56e15eaacc2d04ef5b64685587cc076b0b4c")

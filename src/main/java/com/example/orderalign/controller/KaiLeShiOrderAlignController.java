@@ -420,8 +420,13 @@ public class KaiLeShiOrderAlignController {
                     .map(orderAlign -> CompletableFuture.runAsync(() -> {
                         try {
                             String tid = orderAlign.getTid();
-
-                            YouzanOrderDetail youzanOrderDetail = new YouzanOrderDetail();
+                            YouzanOrderDetail youzanOrderDetail = youzanOrderDetailMapper.selectByTid(appId, tid);
+                            if (Objects.nonNull(youzanOrderDetail)) {
+                                orderAlign.setStatus(STATUS_DETAIL_QUERIED);
+                                kaiLeShiOrderAlignMapper.update(orderAlign);
+                                return;
+                            }
+                            youzanOrderDetail = new YouzanOrderDetail();
                             youzanOrderDetail.setAppId(appId);
                             youzanOrderDetail.setKdtId(rootKdtId);
                             youzanOrderDetail.setTid(tid);
@@ -517,6 +522,8 @@ public class KaiLeShiOrderAlignController {
                             orderAlign.setStatus(STATUS_DETAIL_QUERIED);
                             kaiLeShiOrderAlignMapper.update(orderAlign);
                         } catch (Exception e) {
+                            orderAlign.setStatus(7);
+                            kaiLeShiOrderAlignMapper.update(orderAlign);
                             log.error("处理单个订单失败 outTid: {}", orderAlign.getOutTid(), e);
                         }
                     }, executor))
@@ -606,7 +613,13 @@ public class KaiLeShiOrderAlignController {
                             Date payDate = KaileshiUtil.convertTime2UTC8DateUtil(outOrderDetail.getPayTime());
                             String payDateStr = DateFormatUtil.parseDate2Str(payDate);
                             result.setPayTimeResult(String.valueOf(Objects.equals(yzOrderDetail.getPayTime(), payDateStr)));
+                            if (StringUtils.isBlank(outOrderDetail.getPayTime())) {
+                                result.setPayTimeResult("true");
+                            }
 
+                            Long outOrderTotalAmount = outOrderDetail.getTotalAmount();
+                            Long outOrderTotalPayAmount = outOrderDetail.getTotalPayAmount();
+                            Long outOrderTotalDiscountAmount = outOrderDetail.getTotalAmount() - outOrderDetail.getTotalPayAmount();
                             Long outTotalAmount = 0L;
                             Long outTotalPayAmount = 0L;
                             Long outTotalDiscountAmount = 0L;
@@ -817,18 +830,39 @@ public class KaiLeShiOrderAlignController {
 
                             //应付金额
                             result.setYzTotalAmount(yzOrderDetail.getTotalAmount());
-                            result.setOutTotalAmount(outTotalAmount);
-                            result.setTotalAmountResult(String.valueOf(Objects.equals(yzOrderDetail.getTotalAmount(), outTotalAmount)));
+
+                            //先比对订单级别的应付总额
+                            if (Objects.equals(yzOrderDetail.getTotalAmount(), outOrderTotalAmount)) {
+                                result.setTotalAmountResult(String.valueOf(Objects.equals(yzOrderDetail.getTotalAmount(), outOrderTotalAmount)));
+                                result.setOutTotalAmount(outOrderTotalAmount);
+                            } else {
+                                result.setTotalAmountResult(String.valueOf(Objects.equals(yzOrderDetail.getTotalAmount(), outTotalAmount)));
+                                result.setOutTotalAmount(outTotalAmount);
+                            }
 
                             //实付金额
                             result.setYzPayment(yzOrderDetail.getTotalPayAmount());
-                            result.setOutPayment(outTotalPayAmount);
+
                             result.setPaymentResult(String.valueOf(Objects.equals(yzOrderDetail.getTotalPayAmount(), outTotalPayAmount)));
+
+                            if (Objects.equals(yzOrderDetail.getTotalPayAmount(), outOrderTotalPayAmount)) {
+                                result.setPaymentResult(String.valueOf(Objects.equals(yzOrderDetail.getTotalPayAmount(), outOrderTotalPayAmount)));
+                                result.setOutPayment(outOrderTotalPayAmount);
+                            } else {
+                                result.setPaymentResult(String.valueOf(Objects.equals(yzOrderDetail.getTotalAmount(), outTotalAmount)));
+                                result.setOutPayment(outTotalPayAmount);
+                            }
 
                             //优惠金额
                             result.setYzDiscountAmount(yzOrderDetail.getTotalDiscountAmount());
-                            result.setOutDiscountAmount(outTotalDiscountAmount);
-                            result.setDiscountAmountResult(String.valueOf(Objects.equals(yzOrderDetail.getTotalDiscountAmount(), outTotalDiscountAmount)));
+
+                            if (Objects.equals(yzOrderDetail.getTotalDiscountAmount(), outOrderTotalDiscountAmount)) {
+                                result.setDiscountAmountResult(String.valueOf(Objects.equals(yzOrderDetail.getTotalDiscountAmount(), outOrderTotalDiscountAmount)));
+                                result.setOutDiscountAmount(outOrderTotalDiscountAmount);
+                            } else {
+                                result.setDiscountAmountResult(String.valueOf(Objects.equals(yzOrderDetail.getTotalDiscountAmount(), outTotalDiscountAmount)));
+                                result.setOutDiscountAmount(outTotalDiscountAmount);
+                            }
 
                             String daogouResult = "true";
                             String guideCode = outOrderDetail.getGuideCode();
@@ -928,7 +962,7 @@ public class KaiLeShiOrderAlignController {
         MediaType mediaType = MediaType.parse("application/json");
         okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\"tid\":\"%s\"}", tid));
         Request request = new Request.Builder()
-                .url("https://open.youzanyun.com/api/youzan.trade.get/4.0.2?access_token=472df04b17a2866d56f75b914b39b11")
+                .url("https://open.youzanyun.com/api/youzan.trade.get/4.0.2?access_token=6f9403ac56623bd7890c4d8f6a6d19a")
                 .method("POST", body)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Cookie", "acw_tc=064c13bee4b4da2a4c388a22d53d56e15eaacc2d04ef5b64685587cc076b0b4c")
@@ -942,7 +976,7 @@ public class KaiLeShiOrderAlignController {
         MediaType mediaType = MediaType.parse("application/json");
         okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\"fields\":\"user_base\",\"is_do_ext_point\":false,\"account_info\":{\"account_id\":\"%s\",\"account_type\":2}}", mobile));
         Request request = new Request.Builder()
-                .url("https://open.youzanyun.com/api/youzan.scrm.customer.detail.get/1.0.1?access_token=472df04b17a2866d56f75b914b39b11")
+                .url("https://open.youzanyun.com/api/youzan.scrm.customer.detail.get/1.0.1?access_token=6f9403ac56623bd7890c4d8f6a6d19a")
                 .method("POST", body)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Cookie", "acw_tc=92a8083254e69a13319c5b46cd8c54db382a5c7ff40aa5e976b0d9f6f8f7f0b4")
