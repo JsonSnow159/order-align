@@ -20,12 +20,12 @@
     <select id="selectByPrimaryKey" parameterType="java.lang.Long" resultMap="BaseResultMap">
         select
         <include refid="Base_Column_List"/>
-        from kai_le_shi_member_align
+        from kls_member_align
         where id = #{id,jdbcType=BIGINT}
     </select>
 
     <insert id="insert" keyColumn="id" keyProperty="id" parameterType="com.example.orderalign.model.member.KaiLeShiMemberAlign" useGeneratedKeys="true">
-        insert into kai_le_shi_member_align
+        insert into kls_member_align
         <trim prefix="(" suffix=")" suffixOverrides=",">
             <if test="kdtId != null">
                 kdt_id,
@@ -81,7 +81,7 @@
     </insert>
 
     <update id="update" parameterType="com.example.orderalign.model.member.KaiLeShiMemberAlign">
-        update kai_le_shi_member_align
+        update kls_member_align
         <set>
             <if test="kdtId != null">
                 kdt_id = #{kdtId,jdbcType=BIGINT},
@@ -114,28 +114,28 @@
     <select id="selectByAppIdAndMobile" resultMap="BaseResultMap">
         select
         <include refid="Base_Column_List"/>
-        from kai_le_shi_member_align
+        from kls_member_align
         where app_id = #{appId,jdbcType=VARCHAR} and mobile = #{mobile,jdbcType=VARCHAR}
     </select>
 
     <select id="selectByAppIdAndYzOpenId" resultMap="BaseResultMap">
         select
         <include refid="Base_Column_List"/>
-        from kai_le_shi_member_align
+        from kls_member_align
         where app_id = #{appId,jdbcType=VARCHAR} and yz_open_id = #{yzOpenId,jdbcType=VARCHAR}
     </select>
 
     <select id="selectByAppIdAndMemberId" resultMap="BaseResultMap">
         select
         <include refid="Base_Column_List"/>
-        from kai_le_shi_member_align
+        from kls_member_align
         where app_id = #{appId,jdbcType=VARCHAR} and member_id = #{memberId,jdbcType=VARCHAR}
     </select>
 
     <select id="selectByStatus" resultMap="BaseResultMap">
         select
         <include refid="Base_Column_List"/>
-        from kai_le_shi_member_align
+        from kls_member_align
         where status = #{status,jdbcType=INTEGER}
         limit 100
     </select>

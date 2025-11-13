@@ -7,7 +7,7 @@
         <result column="app_id" jdbcType="VARCHAR" property="appId"/>
         <result column="mobile" jdbcType="VARCHAR" property="mobile"/>
         <result column="member_id" jdbcType="VARCHAR" property="memberId"/>
-        <result column="out_member_detail" jdbcType="LONGVARCHAR" property="outMemberDetail"/>
+        <result column="out_member_detail" jdbcType="VARCHAR" property="outMemberDetail"/>
         <result column="status" jdbcType="INTEGER" property="status"/>
         <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
         <result column="updated_at" jdbcType="TIMESTAMP" property="updatedAt"/>
@@ -47,7 +47,7 @@
             <if test="appId != null">#{appId,jdbcType=VARCHAR},</if>
             <if test="mobile != null">#{mobile,jdbcType=VARCHAR},</if>
             <if test="memberId != null">#{memberId,jdbcType=VARCHAR},</if>
-            <if test="outMemberDetail != null">#{outMemberDetail,jdbcType=LONGVARCHAR},</if>
+            <if test="outMemberDetail != null">#{outMemberDetail,jdbcType=VARCHAR},</if>
             <if test="status != null">#{status,jdbcType=INTEGER},</if>
             <if test="createdAt != null">#{createdAt,jdbcType=TIMESTAMP},</if>
             <if test="updatedAt != null">#{updatedAt,jdbcType=TIMESTAMP},</if>
@@ -61,7 +61,7 @@
             <if test="appId != null">app_id = #{appId,jdbcType=VARCHAR},</if>
             <if test="mobile != null">mobile = #{mobile,jdbcType=VARCHAR},</if>
             <if test="memberId != null">member_id = #{memberId,jdbcType=VARCHAR},</if>
-            <if test="outMemberDetail != null">out_member_detail = #{outMemberDetail,jdbcType=LONGVARCHAR},</if>
+            <if test="outMemberDetail != null">out_member_detail = #{outMemberDetail,jdbcType=VARCHAR},</if>
             <if test="status != null">status = #{status,jdbcType=INTEGER},</if>
             <if test="createdAt != null">created_at = #{createdAt,jdbcType=TIMESTAMP},</if>
             <if test="updatedAt != null">updated_at = #{updatedAt,jdbcType=TIMESTAMP},</if>
