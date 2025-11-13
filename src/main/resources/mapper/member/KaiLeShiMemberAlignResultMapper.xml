@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.orderalign.mapper.member.KaiLeShiMemberAlignResultMapper">
+    <resultMap id="BaseResultMap" type="com.example.orderalign.model.member.KaiLeShiMemberAlignResult">
+        <id column="id" jdbcType="BIGINT" property="id"/>
+        <result column="kdt_id" jdbcType="BIGINT" property="kdtId"/>
+        <result column="app_id" jdbcType="VARCHAR" property="appId"/>
+        <result column="mobile" jdbcType="VARCHAR" property="mobile"/>
+        <result column="yz_open_id" jdbcType="VARCHAR" property="yzOpenId"/>
+        <result column="member_id" jdbcType="VARCHAR" property="memberId"/>
+        <result column="yz_name" jdbcType="VARCHAR" property="yzName"/>
+        <result column="out_name" jdbcType="VARCHAR" property="outName"/>
+        <result column="name_result" jdbcType="VARCHAR" property="nameResult"/>
+        <result column="yz_gender" jdbcType="INTEGER" property="yzGender"/>
+        <result column="out_gender" jdbcType="VARCHAR" property="outGender"/>
+        <result column="gender_result" jdbcType="VARCHAR" property="genderResult"/>
+        <result column="yz_birthday" jdbcType="VARCHAR" property="yzBirthday"/>
+        <result column="out_birthday" jdbcType="VARCHAR" property="outBirthday"/>
+        <result column="birthday_result" jdbcType="VARCHAR" property="birthdayResult"/>
+        <result column="yz_customer_channel" jdbcType="INTEGER" property="yzCustomerChannel"/>
+        <result column="yz_channel" jdbcType="INTEGER" property="yzChannel"/>
+        <result column="out_channel" jdbcType="VARCHAR" property="outChannel"/>
+        <result column="channel_result" jdbcType="VARCHAR" property="channelResult"/>
+        <result column="yz_shop_id" jdbcType="VARCHAR" property="yzShopId"/>
+        <result column="yz_shop_no" jdbcType="VARCHAR" property="yzShopNo"/>
+        <result column="out_shop" jdbcType="VARCHAR" property="outShop"/>
+        <result column="shop_result" jdbcType="VARCHAR" property="shopResult"/>
+        <result column="yz_address" jdbcType="VARCHAR" property="yzAddress"/>
+        <result column="out_address" jdbcType="VARCHAR" property="outAddress"/>
+        <result column="address_result" jdbcType="VARCHAR" property="addressResult"/>
+        <result column="yz_create_time" jdbcType="VARCHAR" property="yzCreateTime"/>
+        <result column="out_create_time" jdbcType="VARCHAR" property="outCreateTime"/>
+        <result column="create_time_result" jdbcType="VARCHAR" property="createTimeResult"/>
+        <result column="yz_level" jdbcType="VARCHAR" property="yzLevel"/>
+        <result column="out_level" jdbcType="VARCHAR" property="outLevel"/>
+        <result column="level_result" jdbcType="VARCHAR" property="levelResult"/>
+        <result column="yz_point" jdbcType="INTEGER" property="yzPoint"/>
+        <result column="out_point" jdbcType="INTEGER" property="outPoint"/>
+        <result column="point_result" jdbcType="VARCHAR" property="pointResult"/>
+        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
+        <result column="updated_at" jdbcType="TIMESTAMP" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, kdt_id, app_id, mobile, yz_open_id, member_id, yz_name, out_name, name_result,
+        yz_gender, out_gender, gender_result, yz_birthday, out_birthday, birthday_result,
+        yz_customer_channel, yz_channel, out_channel, channel_result, yz_shop_id, yz_shop_no, out_shop,
+        shop_result, yz_address, out_address, address_result, yz_create_time, out_create_time,
+        create_time_result, yz_level, out_level, level_result, yz_point, out_point,
+        point_result, created_at, updated_at
+    </sql>
+
+    <insert id="insertSelective" keyColumn="id" keyProperty="id" parameterType="com.example.orderalign.model.member.KaiLeShiMemberAlignResult" useGeneratedKeys="true">
+        insert into kai_le_shi_member_align_result
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="kdtId != null">kdt_id,</if>
+            <if test="appId != null">app_id,</if>
+            <if test="mobile != null">mobile,</if>
+            <if test="yzOpenId != null">yz_open_id,</if>
+            <if test="memberId != null">member_id,</if>
+            <if test="yzName != null">yz_name,</if>
+            <if test="outName != null">out_name,</if>
+            <if test="nameResult != null">name_result,</if>
+            <if test="yzGender != null">yz_gender,</if>
+            <if test="outGender != null">out_gender,</if>
+            <if test="genderResult != null">gender_result,</if>
+            <if test="yzBirthday != null">yz_birthday,</if>
+            <if test="outBirthday != null">out_birthday,</if>
+            <if test="birthdayResult != null">birthday_result,</if>
+            <if test="yzCustomerChannel != null">yz_customer_channel,</if>
+            <if test="yzChannel != null">yz_channel,</if>
+            <if test="outChannel != null">out_channel,</if>
+            <if test="channelResult != null">channel_result,</if>
+            <if test="yzShopId != null">yz_shop_id,</if>
+            <if test="yzShopNo != null">yz_shop_no,</if>
+            <if test="outShop != null">out_shop,</if>
+            <if test="shopResult != null">shop_result,</if>
+            <if test="yzAddress != null">yz_address,</if>
+            <if test="outAddress != null">out_address,</if>
+            <if test="addressResult != null">address_result,</if>
+            <if test="yzCreateTime != null">yz_create_time,</if>
+            <if test="outCreateTime != null">out_create_time,</if>
+            <if test="createTimeResult != null">create_time_result,</if>
+            <if test="yzLevel != null">yz_level,</if>
+            <if test="outLevel != null">out_level,</if>
+            <if test="levelResult != null">level_result,</if>
+            <if test="yzPoint != null">yz_point,</if>
+            <if test="outPoint != null">out_point,</if>
+            <if test="pointResult != null">point_result,</if>
+            <if test="createdAt != null">created_at,</if>
+            <if test="updatedAt != null">updated_at,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="kdtId != null">#{kdtId,jdbcType=BIGINT},</if>
+            <if test="appId != null">#{appId,jdbcType=VARCHAR},</if>
+            <if test="mobile != null">#{mobile,jdbcType=VARCHAR},</if>
+            <if test="yzOpenId != null">#{yzOpenId,jdbcType=VARCHAR},</if>
+            <if test="memberId != null">#{memberId,jdbcType=VARCHAR},</if>
+            <if test="yzName != null">#{yzName,jdbcType=VARCHAR},</if>
+            <if test="outName != null">#{outName,jdbcType=VARCHAR},</if>
+            <if test="nameResult != null">#{nameResult,jdbcType=VARCHAR},</if>
+            <if test="yzGender != null">#{yzGender,jdbcType=INTEGER},</if>
+            <if test="outGender != null">#{outGender,jdbcType=VARCHAR},</if>
+            <if test="genderResult != null">#{genderResult,jdbcType=VARCHAR},</if>
+            <if test="yzBirthday != null">#{yzBirthday,jdbcType=VARCHAR},</if>
+            <if test="outBirthday != null">#{outBirthday,jdbcType=VARCHAR},</if>
+            <if test="birthdayResult != null">#{birthdayResult,jdbcType=VARCHAR},</if>
+            <if test="yzCustomerChannel != null">#{yzCustomerChannel,jdbcType=INTEGER},</if>
+            <if test="yzChannel != null">#{yzChannel,jdbcType=INTEGER},</if>
+            <if test="outChannel != null">#{outChannel,jdbcType=VARCHAR},</if>
+            <if test="channelResult != null">#{channelResult,jdbcType=VARCHAR},</if>
+            <if test="yzShopId != null">#{yzShopId,jdbcType=VARCHAR},</if>
+            <if test="yzShopNo != null">#{yzShopNo,jdbcType=VARCHAR},</if>
+            <if test="outShop != null">#{outShop,jdbcType=VARCHAR},</if>
+            <if test="shopResult != null">#{shopResult,jdbcType=VARCHAR},</if>
+            <if test="yzAddress != null">#{yzAddress,jdbcType=VARCHAR},</if>
+            <if test="outAddress != null">#{outAddress,jdbcType=VARCHAR},</if>
+            <if test="addressResult != null">#{addressResult,jdbcType=VARCHAR},</if>
+            <if test="yzCreateTime != null">#{yzCreateTime,jdbcType=VARCHAR},</if>
+            <if test="outCreateTime != null">#{outCreateTime,jdbcType=VARCHAR},</if>
+            <if test="createTimeResult != null">#{createTimeResult,jdbcType=VARCHAR},</if>
+            <if test="yzLevel != null">#{yzLevel,jdbcType=VARCHAR},</if>
+            <if test="outLevel != null">#{outLevel,jdbcType=VARCHAR},</if>
+            <if test="levelResult != null">#{levelResult,jdbcType=VARCHAR},</if>
+            <if test="yzPoint != null">#{yzPoint,jdbcType=INTEGER},</if>
+            <if test="outPoint != null">#{outPoint,jdbcType=INTEGER},</if>
+            <if test="pointResult != null">#{pointResult,jdbcType=VARCHAR},</if>
+            <if test="createdAt != null">#{createdAt,jdbcType=TIMESTAMP},</if>
+            <if test="updatedAt != null">#{updatedAt,jdbcType=TIMESTAMP},</if>
+        </trim>
+    </insert>
+
+    <update id="updateByPrimaryKeySelective" parameterType="com.example.orderalign.model.member.KaiLeShiMemberAlignResult">
+        update kai_le_shi_member_align_result
+        <set>
+            <if test="kdtId != null">kdt_id = #{kdtId,jdbcType=BIGINT},</if>
+            <if test="appId != null">app_id = #{appId,jdbcType=VARCHAR},</if>
+            <if test="mobile != null">mobile = #{mobile,jdbcType=VARCHAR},</if>
+            <if test="yzOpenId != null">yz_open_id = #{yzOpenId,jdbcType=VARCHAR},</if>
+            <if test="memberId != null">member_id = #{memberId,jdbcType=VARCHAR},</if>
+            <if test="yzName != null">yz_name = #{yzName,jdbcType=VARCHAR},</if>
+            <if test="outName != null">out_name = #{outName,jdbcType=VARCHAR},</if>
+            <if test="nameResult != null">name_result = #{nameResult,jdbcType=VARCHAR},</if>
+            <if test="yzGender != null">yz_gender = #{yzGender,jdbcType=INTEGER},</if>
+            <if test="outGender != null">out_gender = #{outGender,jdbcType=VARCHAR},</if>
+            <if test="genderResult != null">gender_result = #{genderResult,jdbcType=VARCHAR},</if>
+            <if test="yzBirthday != null">yz_birthday = #{yzBirthday,jdbcType=VARCHAR},</if>
+            <if test="outBirthday != null">out_birthday = #{outBirthday,jdbcType=VARCHAR},</if>
+            <if test="birthdayResult != null">birthday_result = #{birthdayResult,jdbcType=VARCHAR},</if>
+            <if test="yzCustomerChannel != null">yz_customer_channel = #{yzCustomerChannel,jdbcType=INTEGER},</if>
+            <if test="yzChannel != null">yz_channel = #{yzChannel,jdbcType=INTEGER},</if>
+            <if test="outChannel != null">out_channel = #{outChannel,jdbcType=VARCHAR},</if>
+            <if test="channelResult != null">channel_result = #{channelResult,jdbcType=VARCHAR},</if>
+            <if test="yzShopId != null">yz_shop_id = #{yzShopId,jdbcType=VARCHAR},</if>
+            <if test="yzShopNo != null">yz_shop_no = #{yzShopNo,jdbcType=VARCHAR},</if>
+            <if test="outShop != null">out_shop = #{outShop,jdbcType=VARCHAR},</if>
+            <if test="shopResult != null">shop_result = #{shopResult,jdbcType=VARCHAR},</if>
+            <if test="yzAddress != null">yz_address = #{yzAddress,jdbcType=VARCHAR},</if>
+            <if test="outAddress != null">out_address = #{outAddress,jdbcType=VARCHAR},</if>
+            <if test="addressResult != null">address_result = #{addressResult,jdbcType=VARCHAR},</if>
+            <if test="yzCreateTime != null">yz_create_time = #{yzCreateTime,jdbcType=VARCHAR},</if>
+            <if test="outCreateTime != null">out_create_time = #{outCreateTime,jdbcType=VARCHAR},</if>
+            <if test="createTimeResult != null">create_time_result = #{createTimeResult,jdbcType=VARCHAR},</if>
+            <if test="yzLevel != null">yz_level = #{yzLevel,jdbcType=VARCHAR},</if>
+            <if test="outLevel != null">out_level = #{outLevel,jdbcType=VARCHAR},</if>
+            <if test="levelResult != null">level_result = #{levelResult,jdbcType=VARCHAR},</if>
+            <if test="yzPoint != null">yz_point = #{yzPoint,jdbcType=INTEGER},</if>
+            <if test="outPoint != null">out_point = #{outPoint,jdbcType=INTEGER},</if>
+            <if test="pointResult != null">point_result = #{pointResult,jdbcType=VARCHAR},</if>
+            <if test="createdAt != null">created_at = #{createdAt,jdbcType=TIMESTAMP},</if>
+            <if test="updatedAt != null">updated_at = #{updatedAt,jdbcType=TIMESTAMP},</if>
+        </set>
+        where id = #{id,jdbcType=BIGINT}
+    </update>
+</mapper>

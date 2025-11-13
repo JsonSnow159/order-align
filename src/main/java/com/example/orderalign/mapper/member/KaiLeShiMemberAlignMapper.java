@@ -25,5 +25,7 @@ public interface KaiLeShiMemberAlignMapper {
 
     KaiLeShiMemberAlign selectByAppIdAndMemberId(@Param("appId") String appId, @Param("memberId") String memberId);
 
+    int delete(Long id);
+
     List<KaiLeShiMemberAlign> selectByStatus(@Param("status") Integer status);
 }

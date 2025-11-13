@@ -132,6 +132,10 @@
         where app_id = #{appId,jdbcType=VARCHAR} and member_id = #{memberId,jdbcType=VARCHAR}
     </select>
 
+    <delete id="delete" >
+        delete from kls_member_align where id = #{id}
+    </delete>
+
     <select id="selectByStatus" resultMap="BaseResultMap">
         select
         <include refid="Base_Column_List"/>

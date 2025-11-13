@@ -1,21 +1,29 @@
 package com.example.orderalign.controller.member;
 
 import com.alibaba.fastjson.JSON;
+import com.example.orderalign.dto.OrderAlignDTO;
 import com.example.orderalign.dto.member.KLSCustomMemberChannelQueryResponse;
 import com.example.orderalign.dto.member.MemberAlignDTO;
 import com.example.orderalign.dto.member.OutMemberDetail;
+import com.example.orderalign.mapper.KaiLeShiOrderAlignMapper;
 import com.example.orderalign.mapper.KlsUserMapper;
 import com.example.orderalign.mapper.member.KaiLeShiMemberAlignMapper;
+import com.example.orderalign.mapper.member.KaiLeShiMemberAlignResultMapper;
 import com.example.orderalign.mapper.member.ThirdPartyMemberDetailMapper;
 import com.example.orderalign.mapper.member.YouzanMemberDetailMapper;
 import com.example.orderalign.model.KlsUser;
 import com.example.orderalign.model.member.KaiLeShiMemberAlign;
+import com.example.orderalign.model.member.KaiLeShiMemberAlignResult;
 import com.example.orderalign.model.member.ThirdPartyMemberDetail;
 import com.example.orderalign.model.member.YouzanMemberDetail;
+import com.example.orderalign.utils.KaileshiUtil;
 import com.example.orderalign.utils.SignUtil;
 import com.youzan.cloud.connector.sdk.client.YzCloudResponse;
+import com.youzan.cloud.connector.sdk.client.constants.MemberSourceChannelEnum;
 import com.youzan.cloud.connector.sdk.common.exception.RecoverableException;
-import com.youzan.cloud.connector.sdk.infra.dal.mapper.InfraUserRelationMapper;
+import com.youzan.cloud.connector.sdk.common.utils.DateFormatUtil;
+import com.youzan.cloud.connector.sdk.infra.dal.entity.ShopRelationDO;
+import com.youzan.cloud.connector.sdk.infra.dal.mapper.ShopRelationMapper;
 import com.youzan.cloud.open.sdk.gen.v1_0_1.model.YouzanScrmCustomerDetailGetResult;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +35,7 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -35,16 +44,13 @@ import org.springframework.web.bind.annotation.RestController;
 import javax.annotation.Resource;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
-@RequestMapping("/kaileshi/datafix")
+@RequestMapping("/kaileshi/member")
 public class KaiLeShiMemberAlignController {
     @Resource
     private KaiLeShiMemberAlignMapper kaiLeShiMemberAlignMapper;
@@ -56,6 +62,10 @@ public class KaiLeShiMemberAlignController {
     private RedissonClient redissonClient;
     @Resource
     private KlsUserMapper klsUserMapper;
+    @Resource
+    private KaiLeShiMemberAlignResultMapper kaiLeShiMemberAlignResultMapper;
+    @Resource
+    private ShopRelationMapper shopRelationMapper;
     private static final int STATUS_PENDING = 0;
     private static final int STATUS_FOUND = 1;
     private static final int STATUS_NOT_FOUND = 4;
@@ -82,6 +92,19 @@ public class KaiLeShiMemberAlignController {
             Executors.defaultThreadFactory(),
             new ThreadPoolExecutor.AbortPolicy()
     );
+
+    public static Map<String, String> levelMap = new HashMap<>();
+
+    static {
+        levelMap.put("银卡", "凯乐石银卡会员");
+        levelMap.put("金卡", "凯乐石金卡会员");
+        levelMap.put("黑金卡", "凯乐石黑金卡会员");
+        levelMap.put("钻石卡", "凯乐石钻石卡会员");
+        levelMap.put("黑钻卡", "凯乐石黑钻卡会员");
+    }
+
+    @Autowired
+    private KaiLeShiOrderAlignMapper kaiLeShiOrderAlignMapper;
 
     /**
      * 执行顺序
@@ -319,6 +342,204 @@ public class KaiLeShiMemberAlignController {
         log.info("查询会员Detail任务结束");
         return YzCloudResponse.success();
     }
+
+    @SneakyThrows
+    @PostMapping("/detailAlign")
+    public YzCloudResponse<Object> detailAlign(@RequestBody OrderAlignDTO param) {
+        log.info("开始会员详情对齐");
+        String appId = param.getAppId();
+        String lockKey = String.format("memberDetailAlign_%s", param.getAppId());
+        RLock lock = redissonClient.getLock(lockKey);
+        boolean isLock = lock.tryLock(1, 5, TimeUnit.MINUTES);
+        if (!isLock) {
+            log.warn("获取锁失败,appId:{},会员详情对齐正在处理中,lockKey: {}", param.getAppId(), lockKey);
+            throw new RecoverableException("获取锁失败");
+        }
+        try {
+            List<KaiLeShiMemberAlign> pendingMemberList = kaiLeShiMemberAlignMapper.selectByStatus(STATUS_DETAIL_QUERIED);
+            if (CollectionUtils.isEmpty(pendingMemberList)) {
+                log.info("没有需要处理的会员");
+                return YzCloudResponse.success();
+            }
+            String[] appIdArr = appId.split("_");
+            String tripartite = appIdArr[1];
+            Long rootKdtId = param.getRootKdtId();
+//            Map<String, Object> props = globalRoutePropsFetcher.fetchAllProps(rootKdtId, tripartite);
+            List<String> pendingMobiles = pendingMemberList.stream().map(KaiLeShiMemberAlign::getMobile).collect(Collectors.toList());
+            log.info("本批次处理会员数量: {}", pendingMobiles.size());
+
+            List<CompletableFuture<Void>> futures = pendingMemberList.stream()
+                    .map(memberAlign -> CompletableFuture.runAsync(() -> {
+                        try {
+                            String mobile = memberAlign.getMobile();
+                            String yzOpenId = memberAlign.getYzOpenId();
+                            String memberId = memberAlign.getMemberId();
+                            log.info("开始处理手机号:{}", mobile);
+
+                            KaiLeShiMemberAlign kaiLeShiMemberAlign = kaiLeShiMemberAlignMapper.selectByAppIdAndMobile(appId, mobile);
+                            if (Objects.nonNull(kaiLeShiMemberAlign)) {
+                                Long id = kaiLeShiMemberAlign.getId();
+                                kaiLeShiMemberAlignMapper.delete(id);
+                            }
+
+                            YouzanMemberDetail youzanMemberDetail = youzanMemberDetailMapper.selectByAppIdAndMobile(appId, mobile);
+                            ThirdPartyMemberDetail thirdPartyMemberDetail = thirdPartyMemberDetailMapper.selectByAppIdAndMobile(appId, mobile);
+
+                            if (Objects.isNull(youzanMemberDetail) || StringUtils.isBlank(youzanMemberDetail.getYouzanMemberDetail())) {
+                                log.error("有赞会员详情不存在, mobile: {}", mobile);
+                                return;
+                            }
+                            if (Objects.isNull(thirdPartyMemberDetail) || StringUtils.isBlank(thirdPartyMemberDetail.getOutMemberDetail())) {
+                                log.error("三方会员详情不存在, mobile: {}", mobile);
+                                return;
+                            }
+
+                            YouzanScrmCustomerDetailGetResult yzOrderDetail = JSON.parseObject(youzanMemberDetail.getYouzanMemberDetail(), YouzanScrmCustomerDetailGetResult.class);
+                            OutMemberDetail outMemberDetail = JSON.parseObject(thirdPartyMemberDetail.getOutMemberDetail(), OutMemberDetail.class);
+
+                            KaiLeShiMemberAlignResult result = new KaiLeShiMemberAlignResult();
+                            result.setKdtId(rootKdtId);
+                            result.setAppId(appId);
+                            result.setMobile(mobile);
+                            result.setYzOpenId(yzOpenId);
+                            result.setMemberId(memberId);
+
+                            YouzanScrmCustomerDetailGetResult.YouzanScrmCustomerDetailGetResultData data = yzOrderDetail.getData();
+                            //姓名比对
+                            String yzName = data.getName();
+                            result.setYzName(yzName);
+                            String memberName = outMemberDetail.getMemberName();
+                            result.setOutName(memberName);
+                            result.setNameResult(String.valueOf(Objects.equals(yzName, memberName)));
+
+                            //性别比对
+                            Short gender = data.getGender();
+                            String yzGender = "O";
+                            if (Objects.equals(gender.intValue(), 1)) {
+                                yzGender = "M";
+                            } else if (Objects.equals(gender.intValue(), 2)) {
+                                yzGender = "F";
+                            }
+                            String outGender = outMemberDetail.getGender();
+                            result.setGenderResult(String.valueOf(Objects.equals(yzGender, outGender)));
+
+                            //生日比对
+                            String birthday = data.getBirthday();
+                            String dateOfBirth = outMemberDetail.getDateOfBirth();
+                            result.setGenderResult(String.valueOf(Objects.equals(birthday, dateOfBirth)));
+
+                            //渠道比对
+                            Integer memberSourceChannel = data.getMemberSourceChannel();
+                            Integer sourceChannel = data.getSourceChannel();
+                            result.setYzCustomerChannel(sourceChannel);
+                            result.setYzChannel(memberSourceChannel);
+                            String firstRegisterChannelType = outMemberDetail.getFirstRegisterChannelType();
+                            result.setOutChannel(firstRegisterChannelType);
+
+                            Integer convertChannel = convertMemberChannel(firstRegisterChannelType);
+                            result.setChannelResult(String.valueOf(Objects.equals(memberSourceChannel, convertChannel)));
+
+                            //成为会员时间
+                            String yzCreateStr = DateFormatUtil.parseLong2Str(data.getMemberCreatedAt());
+                            result.setYzCreateTime(yzCreateStr);
+                            Date createDate = KaileshiUtil.convertTime2UTC8DateUtil(outMemberDetail.getRegisterTime());
+                            String outCreateStr = DateFormatUtil.parseDate2Str(createDate);
+                            result.setCreateTimeResult(String.valueOf(Objects.equals(yzCreateStr, outCreateStr)));
+
+                            //省市区对齐
+                            String provinceName = outMemberDetail.getProvinceName();
+                            String cityName = outMemberDetail.getCityName();
+                            String districtName = outMemberDetail.getDistrictName();
+                            String outAddress = provinceName + "/" + cityName + "/" + districtName;
+                            result.setOutAddress(outAddress);
+
+                            //省市区对齐
+                            String yzProvinceName = data.getProvinceName();
+                            String yzCityName = data.getCityName();
+                            String yzCountyName = data.getCountyName();
+                            String yzAddress = yzProvinceName + "/" + yzCityName + "/" + yzCountyName;
+                            result.setYzAddress(yzAddress);
+                            result.setAddressResult(String.valueOf(Objects.equals(outAddress, yzAddress)));
+
+                            //积分对齐
+                            Long points = data.getPoints();
+                            Integer point = outMemberDetail.getPoint();
+                            result.setYzPoint(points.intValue());
+                            result.setOutPoint(point);
+                            result.setPointResult(String.valueOf(Objects.equals(points.intValue(), point)));
+
+                            //等级对齐
+                            String levelName = "";
+                            List<YouzanScrmCustomerDetailGetResult.YouzanScrmCustomerDetailGetResultLevelinfos> levelInfos = data.getLevelInfos();
+                            if (CollectionUtils.isNotEmpty(levelInfos)) {
+                                for (YouzanScrmCustomerDetailGetResult.YouzanScrmCustomerDetailGetResultLevelinfos levelInfo : levelInfos) {
+                                    if (Objects.equals(levelInfo.getLevelType(), 1)) {
+                                        levelName = levelInfo.getLevelName();
+                                        break;
+                                    }
+                                }
+                            }
+                            result.setYzLevel(levelName);
+                            String memberGrade = outMemberDetail.getMemberGrade();
+                            result.setOutLevel(memberGrade);
+                            if (StringUtils.isNotBlank(levelName)) {
+                                String mLevelName = levelMap.get(levelName);
+                                result.setLevelResult(String.valueOf(Objects.equals(mLevelName, memberGrade)));
+                            } else {
+                                result.setLevelResult("false");
+                            }
+
+                            Long kdtId = data.getMemberSourceKdtId();
+                            result.setYzShopId(kdtId.toString());
+                            result.setOutShop(outMemberDetail.getShopCode());
+                            List<ShopRelationDO> shopRelationList = shopRelationMapper.getByBranchId(appId, kdtId, "UP");
+                            if (CollectionUtils.isNotEmpty(shopRelationList)) {
+                                result.setYzShopNo(shopRelationList.get(0).getOutBranchId());
+                                result.setShopResult(String.valueOf(Objects.equals(result.getYzShopNo(), outMemberDetail.getShopCode())));
+                            } else {
+                                result.setShopResult("店铺未映射");
+                            }
+
+                            kaiLeShiMemberAlignResultMapper.insertSelective(result);
+
+                            memberAlign.setStatus(STATUS_ALIGNED);
+                            kaiLeShiMemberAlignMapper.update(memberAlign);
+                        } catch (Exception e) {
+                            log.error("处理单个会员失败 mobile: {}", memberAlign.getMobile(), e);
+                        }
+                    }, executor))
+                    .collect(Collectors.toList());
+
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        } catch (Exception e) {
+            log.error("查询Detail任务失败", e);
+            return YzCloudResponse.error(500, "处理失败:" + e.getMessage());
+        } finally {
+            lock.unlock();
+        }
+        log.info("会员对账任务结束");
+        return YzCloudResponse.success();
+    }
+
+    private Integer convertMemberChannel(String channelType) {
+        switch (channelType) {
+            case "TAOBAO":
+                return MemberSourceChannelEnum.TMALL.getValue();
+            case "JD":
+                return MemberSourceChannelEnum.JINGDONG.getValue();
+            case "YOUZAN":
+                return MemberSourceChannelEnum.WECHAT_MINI_PROGRAMS.getValue();
+            case "POS":
+                return MemberSourceChannelEnum.OFFLINE_STORE.getValue();
+            case "WECHAT":
+                return MemberSourceChannelEnum.OTHER.getValue();
+            case "DOUYIN":
+                return MemberSourceChannelEnum.DOUYIN.getValue();
+            default:
+                return null;
+        }
+    }
+
 
     public static String memberQuery(String mobile) throws IOException {
         String timeStamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
