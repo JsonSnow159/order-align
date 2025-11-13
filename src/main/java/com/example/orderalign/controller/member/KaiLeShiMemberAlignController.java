@@ -1,6 +1,7 @@
 package com.example.orderalign.controller.member;
 
 import com.alibaba.fastjson.JSON;
+import com.example.orderalign.dto.member.KLSCustomMemberChannelQueryResponse;
 import com.example.orderalign.dto.member.MemberAlignDTO;
 import com.example.orderalign.dto.member.OutMemberDetail;
 import com.example.orderalign.mapper.KlsUserMapper;
@@ -67,6 +68,7 @@ public class KaiLeShiMemberAlignController {
     private static final int DETAIL_STATUS_YZ_FAIL = 3;
     private static final int DETAIL_STATUS_OUT_FAIL = 4;
     private static final String API_URL = "https://api-ekailas.kylin.shuyun.com/omni-api/v1/youzan/member/getMemberInfo";
+    private static final String API_CHANNEL_URL = "https://api-ekailas.kylin.shuyun.com/omni-api/v1/youzan/member/query";
     static OkHttpClient client = new OkHttpClient.Builder()
             .connectTimeout(3, TimeUnit.SECONDS)    // 连接超时
             .readTimeout(3, TimeUnit.SECONDS)       // 读取超时
@@ -260,7 +262,7 @@ public class KaiLeShiMemberAlignController {
 
                             //对齐映射
                             KlsUser klsUser = klsUserMapper.selectByMobile(mobile);
-                            if(Objects.isNull(klsUser)) {
+                            if (Objects.isNull(klsUser)) {
                                 memberAlign.setStatus(8);
                                 kaiLeShiMemberAlignMapper.update(memberAlign);
                                 return;
@@ -270,13 +272,36 @@ public class KaiLeShiMemberAlignController {
                             if (Objects.equals(yzOpenId, memberData.getYzOpenId())) {
                                 memberAlign.setStatus(8);
                                 kaiLeShiMemberAlignMapper.update(memberAlign);
+                                return;
                             } else if (Objects.equals(memberAlign.getMemberId(), outOpenId)) {
                                 memberAlign.setStatus(8);
                                 kaiLeShiMemberAlignMapper.update(memberAlign);
-                            } else {
-                                memberAlign.setStatus(STATUS_DETAIL_QUERIED);
-                                kaiLeShiMemberAlignMapper.update(memberAlign);
+                                return;
                             }
+                            String channelQueryResult = memberChannelQuery(klsUser.getOutOpenId());
+                            if (StringUtils.isBlank(channelQueryResult)) {
+                                memberAlign.setStatus(8);
+                                kaiLeShiMemberAlignMapper.update(memberAlign);
+                                return;
+                            }
+                            KLSCustomMemberChannelQueryResponse klsCustomMemberChannelQueryResponses = JSON.parseObject(channelQueryResult, KLSCustomMemberChannelQueryResponse.class);
+                            if (CollectionUtils.isEmpty(klsCustomMemberChannelQueryResponses.getChannelInfoList())) {
+                                memberAlign.setStatus(8);
+                                kaiLeShiMemberAlignMapper.update(memberAlign);
+                                return;
+                            }
+                            List<KLSCustomMemberChannelQueryResponse.ChannelInfo> youzanChannels = klsCustomMemberChannelQueryResponses.getChannelInfoList().stream()
+                                    .filter(m -> Objects.equals(m.getChannelType(), "YOUZAN")
+                                            && StringUtils.isNotBlank(m.getCustomerNo())
+                                            && m.getCustomerNo().equals(outOpenId))
+                                    .collect(Collectors.toList());
+                            if (CollectionUtils.isEmpty(youzanChannels)) {
+                                memberAlign.setStatus(8);
+                                kaiLeShiMemberAlignMapper.update(memberAlign);
+                                return;
+                            }
+                            memberAlign.setStatus(STATUS_DETAIL_QUERIED);
+                            kaiLeShiMemberAlignMapper.update(memberAlign);
                         } catch (Exception e) {
                             memberAlign.setStatus(7);
                             kaiLeShiMemberAlignMapper.update(memberAlign);
@@ -284,7 +309,6 @@ public class KaiLeShiMemberAlignController {
                         }
                     }, executor))
                     .collect(Collectors.toList());
-
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
         } catch (Exception e) {
             log.error("查询Detail任务失败", e);
@@ -328,6 +352,29 @@ public class KaiLeShiMemberAlignController {
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Cookie", "acw_tc=7b678af2367d8aad51e3ea914ac679a83be97eaf38aaac7c82ddc27bb77baf36")
                 .build();
+        Response response = client.newCall(request).execute();
+        String responseStr = response.body().string();
+        return responseStr;
+    }
+
+    public static String memberChannelQuery(String memberId) throws IOException {
+        String timeStamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+        String callService = "omni-api";
+        String contextPath = "omni-api";
+        String serviceSecret = "gdis22kslllk2";
+
+        String url = String.format("%s?memberType=kailas&memberId=%s",
+                API_CHANNEL_URL, memberId);
+
+        Request request = new Request.Builder()
+                .url(url)
+                .method("GET", null)
+                .addHeader("X-Caller-Sign", SignUtil.generateSign(callService, contextPath, "v1", timeStamp, serviceSecret, "/youzan/member/query"))
+                .addHeader("X-Caller-Timestamp", timeStamp)
+                .addHeader("X-Caller-Service", callService)
+                .addHeader("Content-Type", "application/json")
+                .build();
+
         Response response = client.newCall(request).execute();
         String responseStr = response.body().string();
         return responseStr;
