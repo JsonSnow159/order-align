@@ -440,7 +440,7 @@ public class KaiLeShiMemberAlignController {
 
     @SneakyThrows
     @PostMapping("/detailAlign")
-    public YzCloudResponse<Object> detailAlign(@RequestBody OrderAlignDTO param) {
+    public YzCloudResponse<Object> detailAlign(@RequestBody MemberAlignDTO param) {
         log.info("开始会员详情对齐");
         String appId = param.getAppId();
         String lockKey = String.format("memberDetailAlign_%s", param.getAppId());

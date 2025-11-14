@@ -1,17 +1,15 @@
 package com.example.orderalign.controller.member;
 
-import com.example.orderalign.controller.KaiLeShiOrderAlignController;
-import com.example.orderalign.dto.OrderAlignDTO;
 import com.example.orderalign.dto.member.MemberAlignDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.PreDestroy;
 import javax.annotation.Resource;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -32,21 +30,28 @@ public class KaiLeShiMemberDataFixController {
     private Long rootKdtId;
 
     private final AtomicBoolean isFixRunning = new AtomicBoolean(false);
+    private volatile String currentStage = "";
     // This executor is for the main loop
     private final ExecutorService mainLoopExecutor = Executors.newSingleThreadExecutor();
 
     /**
-     * Starts the continuous data fix process in the background.
+     * Starts the continuous data fix process for a specific stage.
+     * @param stage The stage to run. Valid stages are: "queryOutDetail", "detailAlign".
      */
     @GetMapping("/start")
-    public String startFix() {
+    public String startFix(@RequestParam("stage") String stage) {
+        if (!isValidStage(stage)) {
+            return "Error: Invalid stage specified. Valid stages are: queryOutDetail, detailAlign.";
+        }
+
         if (isFixRunning.compareAndSet(false, true)) {
+            this.currentStage = stage;
             mainLoopExecutor.submit(this::runFixLoop);
-            String message = "Continuous data fix process started (with parallel steps).";
+            String message = "Continuous data fix process started for stage: " + stage;
             log.info(message);
             return message;
         } else {
-            String message = "Continuous data fix process is already running.";
+            String message = "Error: Process is already running stage: " + this.currentStage;
             log.warn(message);
             return message;
         }
@@ -58,7 +63,7 @@ public class KaiLeShiMemberDataFixController {
     @GetMapping("/stop")
     public String stopFix() {
         if (isFixRunning.compareAndSet(true, false)) {
-            String message = "Stopping data fix process. It will terminate after the current iteration.";
+            String message = "Stopping data fix process for stage '" + this.currentStage + "'. It will terminate after the current iteration.";
             log.info(message);
             return message;
         } else {
@@ -73,56 +78,58 @@ public class KaiLeShiMemberDataFixController {
      */
     @GetMapping("/status")
     public String getStatus() {
-        return "Data fix process is " + (isFixRunning.get() ? "running." : "not running.");
+        if (isFixRunning.get()) {
+            return "Data fix process is RUNNING. Current stage: " + this.currentStage;
+        } else {
+            return "Data fix process is NOT RUNNING.";
+        }
     }
 
     private void runFixLoop() {
-        log.info("Starting continuous data fix loop...");
-        // This executor is for running the 4 methods in parallel inside the loop
-        ExecutorService innerExecutor = Executors.newFixedThreadPool(4);
+        log.info("Starting loop for stage: {}", this.currentStage);
 
         while (isFixRunning.get()) {
             try {
-                log.debug("Running data fix iteration with parallel steps...");
-
                 MemberAlignDTO dto = new MemberAlignDTO();
                 dto.setAppId(appId);
                 dto.setRootKdtId(rootKdtId);
 
-//                CompletableFuture<Void> future1 = CompletableFuture.runAsync(() -> kaiLeShiOrderAlignController.queryOutDetail(dto), innerExecutor);
-                CompletableFuture<Void> future2 = CompletableFuture.runAsync(() -> kaiLeShiMemberAlignController.queryOutDetail(dto), innerExecutor);
-//                CompletableFuture<Void> future3 = CompletableFuture.runAsync(() -> kaiLeShiOrderAlignController.queryYzDetail(dto), innerExecutor);
-//                CompletableFuture<Void> future4 = CompletableFuture.runAsync(() -> kaiLeShiOrderAlignController.detailAlign(dto), innerExecutor);
+                log.info("Executing stage: {}", this.currentStage);
+                switch (this.currentStage) {
+                    case "queryOutDetail":
+                        kaiLeShiMemberAlignController.queryOutDetail(dto);
+                        break;
+                    case "detailAlign":
+                        kaiLeShiMemberAlignController.detailAlign(dto);
+                        break;
+                    default:
+                        log.error("Unknown stage: {}. Stopping loop.", this.currentStage);
+                        isFixRunning.set(false);
+                        break;
+                }
 
-                // Wait for all 4 parallel tasks in this iteration to complete
-//                CompletableFuture.allOf(future1, future2, future3, future4).join();
-                CompletableFuture.allOf(future2).join();
+                if (!isFixRunning.get()) { // Check if stop was requested during execution
+                    break;
+                }
 
-                log.debug("Parallel data fix iteration completed. Pausing before next run.");
-                // Add a delay to prevent busy-waiting and resource exhaustion
-                TimeUnit.SECONDS.sleep(1);
+                log.info("Stage '{}' iteration complete. Pausing for 5 seconds.", this.currentStage);
+                TimeUnit.SECONDS.sleep(5);
 
+            } catch (InterruptedException e) {
+                log.warn("Data fix loop for stage '{}' interrupted. Shutting down.", this.currentStage);
+                isFixRunning.set(false); // Stop the loop
+                Thread.currentThread().interrupt(); // Preserve the interrupted status
             } catch (Exception e) {
-                log.error("Error during parallel data fix process, stopping loop.", e);
-                isFixRunning.set(false); // Stop the loop on error
+                log.error("Error during data fix process for stage '" + this.currentStage + "', stopping loop.", e);
+                isFixRunning.set(false); // Stop the loop on other errors
             }
         }
-
-        // Shutdown the inner executor when the loop finishes
-        shutdownInnerExecutor(innerExecutor);
-        log.info("Continuous data fix loop has stopped.");
+        log.info("Loop for stage '{}' has stopped.", this.currentStage);
+        this.currentStage = ""; // Reset stage
     }
 
-    private void shutdownInnerExecutor(ExecutorService executor) {
-        executor.shutdown();
-        try {
-            if (!executor.awaitTermination(30, TimeUnit.SECONDS)) {
-                executor.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            executor.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
+    private boolean isValidStage(String stage) {
+        return "queryOutDetail".equals(stage) || "detailAlign".equals(stage);
     }
 
     @PreDestroy
