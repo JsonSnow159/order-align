@@ -671,9 +671,14 @@ public class KaiLeShiMemberAlignController {
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Cookie", "acw_tc=7b678af2367d8aad51e3ea914ac679a83be97eaf38aaac7c82ddc27bb77baf36")
                 .build();
-        Response response = client.newCall(request).execute();
-        String responseStr = response.body().string();
-        return responseStr;
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                log.error("yzMemberQuery failed for mobile {}. HTTP Code: {}", mobile, response.code());
+                return null;
+            }
+            ResponseBody responseBody = response.body();
+            return responseBody != null ? responseBody.string() : null;
+        }
     }
 
     public static String memberChannelQuery(String memberId) throws IOException {
