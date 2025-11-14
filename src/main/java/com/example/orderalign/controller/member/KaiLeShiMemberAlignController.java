@@ -688,8 +688,13 @@ public class KaiLeShiMemberAlignController {
                 .addHeader("Content-Type", "application/json")
                 .build();
 
-        Response response = client.newCall(request).execute();
-        String responseStr = response.body().string();
-        return responseStr;
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                log.error("memberChannelQuery failed for memberId {}. HTTP Code: {}", memberId, response.code());
+                return null;
+            }
+            ResponseBody body = response.body();
+            return body != null ? body.string() : null;
+        }
     }
 }
