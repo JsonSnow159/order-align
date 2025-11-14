@@ -85,11 +85,17 @@ public class KaiLeShiMemberAlignController {
         dispatcher.setMaxRequests(40);
         dispatcher.setMaxRequestsPerHost(40);
 
+        // Configure a connection pool to evict idle connections.
+        // This helps prevent using stale connections that the server may have dropped.
+        ConnectionPool connectionPool = new ConnectionPool(40, 5, TimeUnit.MINUTES);
+
         client = new OkHttpClient.Builder()
                 .dispatcher(dispatcher)
-                .connectTimeout(3, TimeUnit.SECONDS)    // 连接超时
-                .readTimeout(3, TimeUnit.SECONDS)       // 读取超时
-                .writeTimeout(3, TimeUnit.SECONDS)      // 写入超时
+                .connectionPool(connectionPool) // Use the custom connection pool
+                .connectTimeout(5, TimeUnit.SECONDS)   // Increase connect timeout
+                .readTimeout(5, TimeUnit.SECONDS)      // Increase read timeout
+                .writeTimeout(5, TimeUnit.SECONDS)     // Increase write timeout
+                .retryOnConnectionFailure(true) // Explicitly enable retries on connection failures
                 .build();
     }
     private static final ExecutorService executor = new ThreadPoolExecutor(
