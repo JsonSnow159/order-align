@@ -253,12 +253,12 @@ public class KaiLeShiMemberAlignController {
                                 memberAlign.setStatus(8);
                                 kaiLeShiMemberAlignMapper.update(memberAlign);
                                 return;
-                            } else if (!Objects.equals(memberAlign.getMemberId(), outOpenId)) {
+                            } else if (!Objects.equals(outMemberDetail.getMemberId(), outOpenId)) {
                                 memberAlign.setStatus(8);
                                 kaiLeShiMemberAlignMapper.update(memberAlign);
                                 return;
                             }
-                            String channelQueryResult = memberChannelQuery(klsUser.getOutOpenId());
+                            String channelQueryResult = memberChannelQuery(outMemberDetail.getMemberId());
                             if (StringUtils.isBlank(channelQueryResult)) {
                                 memberAlign.setStatus(8);
                                 kaiLeShiMemberAlignMapper.update(memberAlign);
