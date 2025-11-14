@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.orderalign.mapper.member.KaiLeShiMemberAlignMapper">
+    <resultMap id="BaseResultMap" type="com.example.orderalign.model.member.KaiLeShiMemberAlign">
+        <id column="id" jdbcType="BIGINT" property="id"/>
+        <result column="kdt_id" jdbcType="BIGINT" property="kdtId"/>
+        <result column="app_id" jdbcType="VARCHAR" property="appId"/>
+        <result column="mobile" jdbcType="VARCHAR" property="mobile"/>
+        <result column="yz_open_id" jdbcType="VARCHAR" property="yzOpenId"/>
+        <result column="member_id" jdbcType="VARCHAR" property="memberId"/>
+        <result column="status" jdbcType="INTEGER" property="status"/>
+        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
+        <result column="updated_at" jdbcType="TIMESTAMP" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, kdt_id, app_id, mobile, yz_open_id, member_id, status, created_at, updated_at
+    </sql>
+
+    <select id="selectByPrimaryKey" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from kls_member_align
+        where id = #{id,jdbcType=BIGINT}
+    </select>
+
+    <insert id="insert" keyColumn="id" keyProperty="id" parameterType="com.example.orderalign.model.member.KaiLeShiMemberAlign" useGeneratedKeys="true">
+        insert into kls_member_align
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="kdtId != null">
+                kdt_id,
+            </if>
+            <if test="appId != null">
+                app_id,
+            </if>
+            <if test="mobile != null">
+                mobile,
+            </if>
+            <if test="yzOpenId != null">
+                yz_open_id,
+            </if>
+            <if test="memberId != null">
+                member_id,
+            </if>
+            <if test="status != null">
+                status,
+            </if>
+            <if test="createdAt != null">
+                created_at,
+            </if>
+            <if test="updatedAt != null">
+                updated_at,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="kdtId != null">
+                #{kdtId,jdbcType=BIGINT},
+            </if>
+            <if test="appId != null">
+                #{appId,jdbcType=VARCHAR},
+            </if>
+            <if test="mobile != null">
+                #{mobile,jdbcType=VARCHAR},
+            </if>
+            <if test="yzOpenId != null">
+                #{yzOpenId,jdbcType=VARCHAR},
+            </if>
+            <if test="memberId != null">
+                #{memberId,jdbcType=VARCHAR},
+            </if>
+            <if test="status != null">
+                #{status,jdbcType=INTEGER},
+            </if>
+            <if test="createdAt != null">
+                #{createdAt,jdbcType=TIMESTAMP},
+            </if>
+            <if test="updatedAt != null">
+                #{updatedAt,jdbcType=TIMESTAMP},
+            </if>
+        </trim>
+    </insert>
+
+    <update id="update" parameterType="com.example.orderalign.model.member.KaiLeShiMemberAlign">
+        update kls_member_align
+        <set>
+            <if test="kdtId != null">
+                kdt_id = #{kdtId,jdbcType=BIGINT},
+            </if>
+            <if test="appId != null">
+                app_id = #{appId,jdbcType=VARCHAR},
+            </if>
+            <if test="mobile != null">
+                mobile = #{mobile,jdbcType=VARCHAR},
+            </if>
+            <if test="yzOpenId != null">
+                yz_open_id = #{yzOpenId,jdbcType=VARCHAR},
+            </if>
+            <if test="memberId != null">
+                member_id = #{memberId,jdbcType=VARCHAR},
+            </if>
+            <if test="status != null">
+                status = #{status,jdbcType=INTEGER},
+            </if>
+            <if test="createdAt != null">
+                created_at = #{createdAt,jdbcType=TIMESTAMP},
+            </if>
+            <if test="updatedAt != null">
+                updated_at = #{updatedAt,jdbcType=TIMESTAMP},
+            </if>
+        </set>
+        where id = #{id,jdbcType=BIGINT}
+    </update>
+
+    <select id="selectByAppIdAndMobile" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from kls_member_align
+        where app_id = #{appId,jdbcType=VARCHAR} and mobile = #{mobile,jdbcType=VARCHAR}
+    </select>
+
+    <select id="selectByAppIdAndYzOpenId" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from kls_member_align
+        where app_id = #{appId,jdbcType=VARCHAR} and yz_open_id = #{yzOpenId,jdbcType=VARCHAR}
+    </select>
+
+    <select id="selectByAppIdAndMemberId" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from kls_member_align
+        where app_id = #{appId,jdbcType=VARCHAR} and member_id = #{memberId,jdbcType=VARCHAR}
+    </select>
+
+    <delete id="delete" >
+        delete from kls_member_align where id = #{id}
+    </delete>
+
+    <select id="selectByStatus" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from kls_member_align
+        where status = #{status,jdbcType=INTEGER}
+        limit 100
+    </select>
+</mapper>

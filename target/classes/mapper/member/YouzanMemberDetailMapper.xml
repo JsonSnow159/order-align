@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.orderalign.mapper.member.YouzanMemberDetailMapper">
+    <resultMap id="BaseResultMap" type="com.example.orderalign.model.member.YouzanMemberDetail">
+        <id column="id" jdbcType="BIGINT" property="id"/>
+        <result column="kdt_id" jdbcType="BIGINT" property="kdtId"/>
+        <result column="app_id" jdbcType="VARCHAR" property="appId"/>
+        <result column="mobile" jdbcType="VARCHAR" property="mobile"/>
+        <result column="yz_open_id" jdbcType="VARCHAR" property="yzOpenId"/>
+        <result column="youzan_member_detail" jdbcType="VARCHAR" property="youzanMemberDetail"/>
+        <result column="status" jdbcType="INTEGER" property="status"/>
+        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
+        <result column="updated_at" jdbcType="TIMESTAMP" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, kdt_id, app_id, mobile, yz_open_id, status, created_at, updated_at
+    </sql>
+
+    <sql id="Blob_Column_List">
+        youzan_member_detail
+    </sql>
+
+    <select id="selectByPrimaryKey" parameterType="java.lang.Long" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        ,
+        <include refid="Blob_Column_List"/>
+        from youzan_member_detail
+        where id = #{id,jdbcType=BIGINT}
+    </select>
+
+    <insert id="insertSelective" keyColumn="id" keyProperty="id" parameterType="com.example.orderalign.model.member.YouzanMemberDetail" useGeneratedKeys="true">
+        insert into youzan_member_detail
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="kdtId != null">kdt_id,</if>
+            <if test="appId != null">app_id,</if>
+            <if test="mobile != null">mobile,</if>
+            <if test="yzOpenId != null">yz_open_id,</if>
+            <if test="youzanMemberDetail != null">youzan_member_detail,</if>
+            <if test="status != null">status,</if>
+            <if test="createdAt != null">created_at,</if>
+            <if test="updatedAt != null">updated_at,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="kdtId != null">#{kdtId,jdbcType=BIGINT},</if>
+            <if test="appId != null">#{appId,jdbcType=VARCHAR},</if>
+            <if test="mobile != null">#{mobile,jdbcType=VARCHAR},</if>
+            <if test="yzOpenId != null">#{yzOpenId,jdbcType=VARCHAR},</if>
+            <if test="youzanMemberDetail != null">#{youzanMemberDetail,jdbcType=VARCHAR},</if>
+            <if test="status != null">#{status,jdbcType=INTEGER},</if>
+            <if test="createdAt != null">#{createdAt,jdbcType=TIMESTAMP},</if>
+            <if test="updatedAt != null">#{updatedAt,jdbcType=TIMESTAMP},</if>
+        </trim>
+    </insert>
+
+    <update id="updateByPrimaryKeySelective" parameterType="com.example.orderalign.model.member.YouzanMemberDetail">
+        update youzan_member_detail
+        <set>
+            <if test="kdtId != null">kdt_id = #{kdtId,jdbcType=BIGINT},</if>
+            <if test="appId != null">app_id = #{appId,jdbcType=VARCHAR},</if>
+            <if test="mobile != null">mobile = #{mobile,jdbcType=VARCHAR},</if>
+            <if test="yzOpenId != null">yz_open_id = #{yzOpenId,jdbcType=VARCHAR},</if>
+            <if test="youzanMemberDetail != null">youzan_member_detail = #{youzanMemberDetail,jdbcType=VARCHAR},</if>
+            <if test="status != null">status = #{status,jdbcType=INTEGER},</if>
+            <if test="createdAt != null">created_at = #{createdAt,jdbcType=TIMESTAMP},</if>
+            <if test="updatedAt != null">updated_at = #{updatedAt,jdbcType=TIMESTAMP},</if>
+        </set>
+        where id = #{id,jdbcType=BIGINT}
+    </update>
+
+    <select id="selectByAppIdAndMobile" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        ,
+        <include refid="Blob_Column_List"/>
+        from youzan_member_detail
+        where app_id = #{appId,jdbcType=VARCHAR} and mobile = #{mobile,jdbcType=VARCHAR}
+    </select>
+
+    <select id="selectByAppIdAndYzOpenId" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        ,
+        <include refid="Blob_Column_List"/>
+        from youzan_member_detail
+        where app_id = #{appId,jdbcType=VARCHAR} and yz_open_id = #{yzOpenId,jdbcType=VARCHAR}
+    </select>
+</mapper>

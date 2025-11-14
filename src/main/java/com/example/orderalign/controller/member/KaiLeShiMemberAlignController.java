@@ -1,6 +1,8 @@
 package com.example.orderalign.controller.member;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import com.example.orderalign.dto.OrderAlignDTO;
 import com.example.orderalign.dto.member.KLSCustomMemberChannelQueryResponse;
 import com.example.orderalign.dto.member.MemberAlignDTO;
@@ -96,11 +98,11 @@ public class KaiLeShiMemberAlignController {
     public static Map<String, String> levelMap = new HashMap<>();
 
     static {
-        levelMap.put("银卡", "凯乐石银卡会员");
-        levelMap.put("金卡", "凯乐石金卡会员");
-        levelMap.put("黑金卡", "凯乐石黑金卡会员");
-        levelMap.put("钻石卡", "凯乐石钻石卡会员");
-        levelMap.put("黑钻卡", "凯乐石黑钻卡会员");
+        levelMap.put("凯乐石银卡会员", "银卡");
+        levelMap.put("凯乐石金卡会员", "金卡");
+        levelMap.put("凯乐石黑金卡会员", "黑金卡");
+        levelMap.put("凯乐石钻石卡会员", "钻石卡");
+        levelMap.put("凯乐石黑钻卡会员", "黑钻卡");
     }
 
     @Autowired
@@ -174,7 +176,7 @@ public class KaiLeShiMemberAlignController {
         Long rootKdtId = param.getRootKdtId();
 //        Map<String, Object> props = globalRoutePropsFetcher.fetchAllProps(rootKdtId, tripartite);
 
-        String lockKey = String.format("queryDetail_%s", param.getAppId());
+        String lockKey = String.format("queryOutMemberDetail_%s", param.getAppId());
         RLock lock = redissonClient.getLock(lockKey);
         boolean isLock = lock.tryLock(1, 5, TimeUnit.MINUTES);
         if (!isLock) {
@@ -204,7 +206,10 @@ public class KaiLeShiMemberAlignController {
                             OutMemberDetail outMemberDetail = new OutMemberDetail();
                             String kylinMemberDetailStr = memberQuery(mobile);
                             if (StringUtils.isNotBlank(kylinMemberDetailStr)) {
-                                outMemberDetail = JSON.parseObject(JSON.toJSONString(JSON.parseObject(kylinMemberDetailStr).getJSONArray("data").getJSONObject(0)), OutMemberDetail.class);
+                                JSONArray data = JSON.parseObject(kylinMemberDetailStr).getJSONArray("data");
+                                if(Objects.nonNull(data) && data.size() > 0) {
+                                    outMemberDetail = JSON.parseObject(JSON.toJSONString(JSON.parseObject(kylinMemberDetailStr).getJSONArray("data").getJSONObject(0)), OutMemberDetail.class);
+                                }
                             }
                             if (Objects.isNull(outMemberDetail)) {
                                 memberAlign.setStatus(STATUS_NOT_FOUND);
@@ -218,6 +223,7 @@ public class KaiLeShiMemberAlignController {
                             thirdPartyMemberDetailMapper.insert(thirdPartyMemberDetail);
                             //三方详情已查询
                             memberAlign.setStatus(STATUS_OUT_DETAIL_QUERIED);
+                            memberAlign.setMemberId(outMemberDetail.getMemberId());
                             kaiLeShiMemberAlignMapper.update(memberAlign);
                         } catch (Exception e) {
                             log.error("处理单个用户失败 mobile: {}", memberAlign.getMobile(), e);
@@ -254,7 +260,7 @@ public class KaiLeShiMemberAlignController {
         }
 
         try {
-            List<KaiLeShiMemberAlign> pendingOrders = kaiLeShiMemberAlignMapper.selectByStatus(STATUS_FOUND);
+            List<KaiLeShiMemberAlign> pendingOrders = kaiLeShiMemberAlignMapper.selectByStatus(STATUS_OUT_DETAIL_QUERIED);
             if (CollectionUtils.isEmpty(pendingOrders)) {
                 log.info("没有需要处理的会员");
                 return YzCloudResponse.success();
@@ -292,11 +298,11 @@ public class KaiLeShiMemberAlignController {
                             }
                             String yzOpenId = klsUser.getYzOpenId();
                             String outOpenId = klsUser.getOutOpenId();
-                            if (Objects.equals(yzOpenId, memberData.getYzOpenId())) {
+                            if (!Objects.equals(yzOpenId, memberData.getYzOpenId())) {
                                 memberAlign.setStatus(8);
                                 kaiLeShiMemberAlignMapper.update(memberAlign);
                                 return;
-                            } else if (Objects.equals(memberAlign.getMemberId(), outOpenId)) {
+                            } else if (!Objects.equals(memberAlign.getMemberId(), outOpenId)) {
                                 memberAlign.setStatus(8);
                                 kaiLeShiMemberAlignMapper.update(memberAlign);
                                 return;
@@ -307,8 +313,15 @@ public class KaiLeShiMemberAlignController {
                                 kaiLeShiMemberAlignMapper.update(memberAlign);
                                 return;
                             }
-                            KLSCustomMemberChannelQueryResponse klsCustomMemberChannelQueryResponses = JSON.parseObject(channelQueryResult, KLSCustomMemberChannelQueryResponse.class);
-                            if (CollectionUtils.isEmpty(klsCustomMemberChannelQueryResponses.getChannelInfoList())) {
+                            KLSCustomMemberChannelQueryResponse klsCustomMemberChannelQueryResponses = null;
+                            if (StringUtils.isNotBlank(channelQueryResult)) {
+                                JSONObject data = JSON.parseObject(channelQueryResult).getJSONObject("data");
+                                if(Objects.nonNull(data)) {
+                                    klsCustomMemberChannelQueryResponses = JSON.parseObject(JSON.toJSONString(data), KLSCustomMemberChannelQueryResponse.class);
+                                }
+                            }
+
+                            if (Objects.isNull(klsCustomMemberChannelQueryResponses) || CollectionUtils.isEmpty(klsCustomMemberChannelQueryResponses.getChannelInfoList())) {
                                 memberAlign.setStatus(8);
                                 kaiLeShiMemberAlignMapper.update(memberAlign);
                                 return;
@@ -316,7 +329,7 @@ public class KaiLeShiMemberAlignController {
                             List<KLSCustomMemberChannelQueryResponse.ChannelInfo> youzanChannels = klsCustomMemberChannelQueryResponses.getChannelInfoList().stream()
                                     .filter(m -> Objects.equals(m.getChannelType(), "YOUZAN")
                                             && StringUtils.isNotBlank(m.getCustomerNo())
-                                            && m.getCustomerNo().equals(outOpenId))
+                                            && m.getCustomerNo().equals(memberData.getYzOpenId()))
                                     .collect(Collectors.toList());
                             if (CollectionUtils.isEmpty(youzanChannels)) {
                                 memberAlign.setStatus(8);
@@ -324,6 +337,7 @@ public class KaiLeShiMemberAlignController {
                                 return;
                             }
                             memberAlign.setStatus(STATUS_DETAIL_QUERIED);
+                            memberAlign.setYzOpenId(memberData.getYzOpenId());
                             kaiLeShiMemberAlignMapper.update(memberAlign);
                         } catch (Exception e) {
                             memberAlign.setStatus(7);
@@ -542,6 +556,9 @@ public class KaiLeShiMemberAlignController {
 
 
     public static String memberQuery(String mobile) throws IOException {
+        if(mobile.startsWith("+")) {
+            mobile = mobile.replace("+","%2B");
+        }
         String timeStamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
         String callService = "omni-api";
         String contextPath = "omni-api";
@@ -568,7 +585,7 @@ public class KaiLeShiMemberAlignController {
         MediaType mediaType = MediaType.parse("application/json");
         okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\"fields\":\"user_base,level,credit\",\"is_do_ext_point\":false,\"account_info\":{\"account_id\":\"%s\",\"account_type\":2}}", mobile));
         Request request = new Request.Builder()
-                .url("https://open.youzanyun.com/api/youzan.scrm.customer.detail.get/1.0.1?access_token=c7330263b90c63ec08211c84a2a3648")
+                .url("https://open.youzanyun.com/api/youzan.scrm.customer.detail.get/1.0.1?access_token=3d53e273c70c668d7874e48a42eb5d9")
                 .method("POST", body)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Cookie", "acw_tc=7b678af2367d8aad51e3ea914ac679a83be97eaf38aaac7c82ddc27bb77baf36")
