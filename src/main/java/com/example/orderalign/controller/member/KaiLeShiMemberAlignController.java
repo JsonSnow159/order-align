@@ -29,10 +29,7 @@ import com.youzan.cloud.connector.sdk.infra.dal.mapper.ShopRelationMapper;
 import com.youzan.cloud.open.sdk.gen.v1_0_1.model.YouzanScrmCustomerDetailGetResult;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
+import okhttp3.*;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.redisson.api.RLock;
@@ -81,11 +78,20 @@ public class KaiLeShiMemberAlignController {
     private static final int DETAIL_STATUS_OUT_FAIL = 4;
     private static final String API_URL = "https://api-ekailas.kylin.shuyun.com/omni-api/v1/youzan/member/getMemberInfo";
     private static final String API_CHANNEL_URL = "https://api-ekailas.kylin.shuyun.com/omni-api/v1/youzan/member/query";
-    static OkHttpClient client = new OkHttpClient.Builder()
-            .connectTimeout(3, TimeUnit.SECONDS)    // 连接超时
-            .readTimeout(3, TimeUnit.SECONDS)       // 读取超时
-            .writeTimeout(3, TimeUnit.SECONDS)      // 写入超时
-            .build();
+    static OkHttpClient client;
+
+    static {
+        Dispatcher dispatcher = new Dispatcher();
+        dispatcher.setMaxRequests(40);
+        dispatcher.setMaxRequestsPerHost(40);
+
+        client = new OkHttpClient.Builder()
+                .dispatcher(dispatcher)
+                .connectTimeout(3, TimeUnit.SECONDS)    // 连接超时
+                .readTimeout(3, TimeUnit.SECONDS)       // 读取超时
+                .writeTimeout(3, TimeUnit.SECONDS)      // 写入超时
+                .build();
+    }
     private static final ExecutorService executor = new ThreadPoolExecutor(
             40,
             40,
