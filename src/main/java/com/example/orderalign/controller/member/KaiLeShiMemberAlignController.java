@@ -197,7 +197,7 @@ public class KaiLeShiMemberAlignController {
                     .map(memberAlign -> CompletableFuture.runAsync(() -> {
                         try {
                             String mobile = memberAlign.getMobile();
-
+                            //TODO 查询数云详情
                             ThirdPartyMemberDetail thirdPartyMemberDetail = new ThirdPartyMemberDetail();
                             thirdPartyMemberDetail.setAppId(appId);
                             thirdPartyMemberDetail.setKdtId(rootKdtId);
@@ -221,11 +221,80 @@ public class KaiLeShiMemberAlignController {
                             thirdPartyMemberDetail.setStatus(DETAIL_STATUS_QUERIED);
                             thirdPartyMemberDetail.setMemberId(outMemberDetail.getMemberId());
                             thirdPartyMemberDetailMapper.insert(thirdPartyMemberDetail);
-                            //三方详情已查询
-                            memberAlign.setStatus(STATUS_OUT_DETAIL_QUERIED);
+
+                            //TODO 查询有赞详情
+                            String yzMemberDetail = yzMemberQuery(mobile);
+                            YouzanScrmCustomerDetailGetResult youzanMemberDetailResult = JSON.parseObject(yzMemberDetail, YouzanScrmCustomerDetailGetResult.class);
+                            if (Objects.isNull(youzanMemberDetailResult) || !youzanMemberDetailResult.getSuccess()) {
+                                memberAlign.setStatus(STATUS_NOT_FOUND);
+                                kaiLeShiMemberAlignMapper.update(memberAlign);
+                                return;
+                            }
+                            YouzanMemberDetail youzanMemberDetail = new YouzanMemberDetail();
+                            youzanMemberDetail.setAppId(appId);
+                            youzanMemberDetail.setKdtId(rootKdtId);
+                            youzanMemberDetail.setMobile(mobile);
+                            YouzanScrmCustomerDetailGetResult.YouzanScrmCustomerDetailGetResultData memberData = youzanMemberDetailResult.getData();
+                            youzanMemberDetail.setYzOpenId(memberData.getYzOpenId());
+                            youzanMemberDetail.setYouzanMemberDetail(JSON.toJSONString(youzanMemberDetailResult));
+                            youzanMemberDetail.setStatus(DETAIL_STATUS_QUERIED);
+                            youzanMemberDetailMapper.insertSelective(youzanMemberDetail);
+
+                            //对齐映射
+                            KlsUser klsUser = klsUserMapper.selectByMobile(mobile);
+                            if (Objects.isNull(klsUser)) {
+                                memberAlign.setStatus(8);
+                                kaiLeShiMemberAlignMapper.update(memberAlign);
+                                return;
+                            }
+                            String yzOpenId = klsUser.getYzOpenId();
+                            String outOpenId = klsUser.getOutOpenId();
+                            if (!Objects.equals(yzOpenId, memberData.getYzOpenId())) {
+                                memberAlign.setStatus(8);
+                                kaiLeShiMemberAlignMapper.update(memberAlign);
+                                return;
+                            } else if (!Objects.equals(memberAlign.getMemberId(), outOpenId)) {
+                                memberAlign.setStatus(8);
+                                kaiLeShiMemberAlignMapper.update(memberAlign);
+                                return;
+                            }
+                            String channelQueryResult = memberChannelQuery(klsUser.getOutOpenId());
+                            if (StringUtils.isBlank(channelQueryResult)) {
+                                memberAlign.setStatus(8);
+                                kaiLeShiMemberAlignMapper.update(memberAlign);
+                                return;
+                            }
+                            KLSCustomMemberChannelQueryResponse klsCustomMemberChannelQueryResponses = null;
+                            if (StringUtils.isNotBlank(channelQueryResult)) {
+                                JSONObject data = JSON.parseObject(channelQueryResult).getJSONObject("data");
+                                if(Objects.nonNull(data)) {
+                                    klsCustomMemberChannelQueryResponses = JSON.parseObject(JSON.toJSONString(data), KLSCustomMemberChannelQueryResponse.class);
+                                }
+                            }
+
+                            if (Objects.isNull(klsCustomMemberChannelQueryResponses) || CollectionUtils.isEmpty(klsCustomMemberChannelQueryResponses.getChannelInfoList())) {
+                                memberAlign.setStatus(8);
+                                kaiLeShiMemberAlignMapper.update(memberAlign);
+                                return;
+                            }
+                            List<KLSCustomMemberChannelQueryResponse.ChannelInfo> youzanChannels = klsCustomMemberChannelQueryResponses.getChannelInfoList().stream()
+                                    .filter(m -> Objects.equals(m.getChannelType(), "YOUZAN")
+                                            && StringUtils.isNotBlank(m.getCustomerNo())
+                                            && m.getCustomerNo().equals(memberData.getYzOpenId()))
+                                    .collect(Collectors.toList());
+                            if (CollectionUtils.isEmpty(youzanChannels)) {
+                                memberAlign.setStatus(8);
+                                kaiLeShiMemberAlignMapper.update(memberAlign);
+                                return;
+                            }
+                            //全部详情已查询
+                            memberAlign.setStatus(STATUS_DETAIL_QUERIED);
+                            memberAlign.setYzOpenId(memberData.getYzOpenId());
                             memberAlign.setMemberId(outMemberDetail.getMemberId());
                             kaiLeShiMemberAlignMapper.update(memberAlign);
                         } catch (Exception e) {
+                            memberAlign.setStatus(7);
+                            kaiLeShiMemberAlignMapper.update(memberAlign);
                             log.error("处理单个用户失败 mobile: {}", memberAlign.getMobile(), e);
                         }
                     }, executor))
