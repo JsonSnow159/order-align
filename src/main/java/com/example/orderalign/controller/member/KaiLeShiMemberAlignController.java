@@ -87,8 +87,8 @@ public class KaiLeShiMemberAlignController {
             .writeTimeout(3, TimeUnit.SECONDS)      // 写入超时
             .build();
     private static final ExecutorService executor = new ThreadPoolExecutor(
-            10,
-            20,
+            40,
+            40,
             60L, TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(200),
             Executors.defaultThreadFactory(),

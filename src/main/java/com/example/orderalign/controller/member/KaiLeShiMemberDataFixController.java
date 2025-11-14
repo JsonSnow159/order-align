@@ -98,7 +98,9 @@ public class KaiLeShiMemberDataFixController {
 //                CompletableFuture.allOf(future1, future2, future3, future4).join();
                 CompletableFuture.allOf(future2).join();
 
-                log.debug("Parallel data fix iteration completed.");
+                log.debug("Parallel data fix iteration completed. Pausing before next run.");
+                // Add a delay to prevent busy-waiting and resource exhaustion
+                TimeUnit.SECONDS.sleep(1);
 
             } catch (Exception e) {
                 log.error("Error during parallel data fix process, stopping loop.", e);
