@@ -92,15 +92,15 @@ public class KaiLeShiMemberAlignController {
         client = new OkHttpClient.Builder()
                 .dispatcher(dispatcher)
                 .connectionPool(connectionPool) // Use the custom connection pool
-                .connectTimeout(5, TimeUnit.SECONDS)   // Increase connect timeout
-                .readTimeout(5, TimeUnit.SECONDS)      // Increase read timeout
-                .writeTimeout(5, TimeUnit.SECONDS)     // Increase write timeout
-                .retryOnConnectionFailure(true) // Explicitly enable retries on connection failures
+                .connectTimeout(3, TimeUnit.SECONDS)   // Increase connect timeout
+                .readTimeout(3, TimeUnit.SECONDS)      // Increase read timeout
+                .writeTimeout(3, TimeUnit.SECONDS)     // Increase write timeout
+                .retryOnConnectionFailure(false) // Explicitly enable retries on connection failures
                 .build();
     }
     private static final ExecutorService executor = new ThreadPoolExecutor(
-            40,
-            40,
+            10,
+            10,
             60L, TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(200),
             Executors.defaultThreadFactory(),
