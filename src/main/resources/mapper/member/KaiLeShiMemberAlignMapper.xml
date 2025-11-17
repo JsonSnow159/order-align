@@ -143,4 +143,12 @@
         where status = #{status,jdbcType=INTEGER}
         limit 100
     </select>
+
+    <select id="selectByStatusWithLimit" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from kls_member_align
+        where status = #{status,jdbcType=INTEGER}
+        limit #{limit,jdbcType=INTEGER}
+    </select>
 </mapper>

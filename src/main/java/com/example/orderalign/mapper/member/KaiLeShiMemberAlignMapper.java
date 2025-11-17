@@ -28,4 +28,6 @@ public interface KaiLeShiMemberAlignMapper {
     int delete(Long id);
 
     List<KaiLeShiMemberAlign> selectByStatus(@Param("status") Integer status);
+
+    List<KaiLeShiMemberAlign> selectByStatusWithLimit(@Param("status") Integer status, @Param("limit") int limit);
 }
