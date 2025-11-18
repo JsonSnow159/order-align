@@ -98,6 +98,7 @@ public class KaiLeShiMemberAlignController {
                 .retryOnConnectionFailure(false) // Explicitly enable retries on connection failures
                 .build();
     }
+
     private static final ExecutorService executor = new ThreadPoolExecutor(
             10,
             10,
@@ -219,7 +220,7 @@ public class KaiLeShiMemberAlignController {
                             String kylinMemberDetailStr = memberQuery(mobile);
                             if (StringUtils.isNotBlank(kylinMemberDetailStr)) {
                                 JSONArray data = JSON.parseObject(kylinMemberDetailStr).getJSONArray("data");
-                                if(Objects.nonNull(data) && data.size() > 0) {
+                                if (Objects.nonNull(data) && data.size() > 0) {
                                     outMemberDetail = JSON.parseObject(JSON.toJSONString(JSON.parseObject(kylinMemberDetailStr).getJSONArray("data").getJSONObject(0)), OutMemberDetail.class);
                                 }
                             }
@@ -279,7 +280,7 @@ public class KaiLeShiMemberAlignController {
                             KLSCustomMemberChannelQueryResponse klsCustomMemberChannelQueryResponses = null;
                             if (StringUtils.isNotBlank(channelQueryResult)) {
                                 JSONObject data = JSON.parseObject(channelQueryResult).getJSONObject("data");
-                                if(Objects.nonNull(data)) {
+                                if (Objects.nonNull(data)) {
                                     klsCustomMemberChannelQueryResponses = JSON.parseObject(JSON.toJSONString(data), KLSCustomMemberChannelQueryResponse.class);
                                 }
                             }
@@ -397,7 +398,7 @@ public class KaiLeShiMemberAlignController {
                             KLSCustomMemberChannelQueryResponse klsCustomMemberChannelQueryResponses = null;
                             if (StringUtils.isNotBlank(channelQueryResult)) {
                                 JSONObject data = JSON.parseObject(channelQueryResult).getJSONObject("data");
-                                if(Objects.nonNull(data)) {
+                                if (Objects.nonNull(data)) {
                                     klsCustomMemberChannelQueryResponses = JSON.parseObject(JSON.toJSONString(data), KLSCustomMemberChannelQueryResponse.class);
                                 }
                             }
@@ -471,10 +472,10 @@ public class KaiLeShiMemberAlignController {
                             String memberId = memberAlign.getMemberId();
                             log.info("开始处理手机号:{}", mobile);
 
-                            KaiLeShiMemberAlign kaiLeShiMemberAlign = kaiLeShiMemberAlignMapper.selectByAppIdAndMobile(appId, mobile);
-                            if (Objects.nonNull(kaiLeShiMemberAlign)) {
-                                Long id = kaiLeShiMemberAlign.getId();
-                                kaiLeShiMemberAlignMapper.delete(id);
+                            KaiLeShiMemberAlignResult kaiLeShiMemberAlignResult = kaiLeShiMemberAlignResultMapper.selectByAppIdAndMobile(appId, mobile);
+                            if (Objects.nonNull(kaiLeShiMemberAlignResult)) {
+                                Long id = kaiLeShiMemberAlignResult.getId();
+                                kaiLeShiMemberAlignResultMapper.delete(id);
                             }
 
                             YouzanMemberDetail youzanMemberDetail = youzanMemberDetailMapper.selectByAppIdAndMobile(appId, mobile);
@@ -505,23 +506,44 @@ public class KaiLeShiMemberAlignController {
                             result.setYzName(yzName);
                             String memberName = outMemberDetail.getMemberName();
                             result.setOutName(memberName);
+                            if (Objects.equals(yzName, "未知") && StringUtils.isBlank(memberName)) {
+                                yzName = null;
+                            }
                             result.setNameResult(String.valueOf(Objects.equals(yzName, memberName)));
 
                             //性别比对
                             Short gender = data.getGender();
-                            String yzGender = "O";
+                            result.setYzGender(gender.intValue());
+                            String yzGender = null;
+                            if (Objects.nonNull(gender)) {
+                                yzGender = "O";
+                            }
                             if (Objects.equals(gender.intValue(), 1)) {
                                 yzGender = "M";
                             } else if (Objects.equals(gender.intValue(), 2)) {
                                 yzGender = "F";
                             }
                             String outGender = outMemberDetail.getGender();
-                            result.setGenderResult(String.valueOf(Objects.equals(yzGender, outGender)));
+                            result.setOutGender(outGender);
+                            if (Objects.equals(yzGender, "O") && StringUtils.isBlank(outGender)) {
+                                result.setGenderResult("true");
+                            } else {
+                                result.setGenderResult(String.valueOf(Objects.equals(yzGender, outGender)));
+                            }
 
                             //生日比对
                             String birthday = data.getBirthday();
+                            if (StringUtils.isNotBlank(birthday)) {
+                                birthday = DateFormatUtil.parseStr2Str(birthday, DateFormatUtil.YYYY_MM_DD_HH_MM_SS, DateFormatUtil.YYYY_MM_DD);
+                            }
+                            result.setYzBirthday(birthday);
                             String dateOfBirth = outMemberDetail.getDateOfBirth();
-                            result.setGenderResult(String.valueOf(Objects.equals(birthday, dateOfBirth)));
+                            result.setOutBirthday(dateOfBirth);
+                            if (StringUtils.isNotBlank(birthday) && Objects.equals(birthday, "1900-01-01") && StringUtils.isBlank(dateOfBirth)) {
+                                result.setBirthdayResult("true");
+                            } else {
+                                result.setBirthdayResult(String.valueOf(Objects.equals(birthday, dateOfBirth)));
+                            }
 
                             //渠道比对
                             Integer memberSourceChannel = data.getMemberSourceChannel();
@@ -532,14 +554,25 @@ public class KaiLeShiMemberAlignController {
                             result.setOutChannel(firstRegisterChannelType);
 
                             Integer convertChannel = convertMemberChannel(firstRegisterChannelType);
-                            result.setChannelResult(String.valueOf(Objects.equals(memberSourceChannel, convertChannel)));
+                            if (convertChannel == 0) {
+                                result.setChannelResult("true");
+                            } else {
+                                result.setChannelResult(String.valueOf(Objects.equals(memberSourceChannel, convertChannel)));
+                            }
 
                             //成为会员时间
-                            String yzCreateStr = DateFormatUtil.parseLong2Str(data.getMemberCreatedAt());
-                            result.setYzCreateTime(yzCreateStr);
                             Date createDate = KaileshiUtil.convertTime2UTC8DateUtil(outMemberDetail.getRegisterTime());
                             String outCreateStr = DateFormatUtil.parseDate2Str(createDate);
-                            result.setCreateTimeResult(String.valueOf(Objects.equals(yzCreateStr, outCreateStr)));
+                            result.setOutCreateTime(outCreateStr);
+
+                            if (Objects.nonNull(data.getMemberCreatedAt())) {
+                                String yzCreateStr = DateFormatUtil.parseLong2Str(data.getMemberCreatedAt() * 1000);
+                                result.setYzCreateTime(yzCreateStr);
+                                result.setCreateTimeResult(String.valueOf(Objects.equals(yzCreateStr, outCreateStr)));
+                            } else {
+                                result.setYzCreateTime(null);
+                                result.setCreateTimeResult("false");
+                            }
 
                             //省市区对齐
                             String provinceName = outMemberDetail.getProvinceName();
@@ -554,8 +587,30 @@ public class KaiLeShiMemberAlignController {
                             String yzCountyName = data.getCountyName();
                             String yzAddress = yzProvinceName + "/" + yzCityName + "/" + yzCountyName;
                             result.setYzAddress(yzAddress);
-                            result.setAddressResult(String.valueOf(Objects.equals(outAddress, yzAddress)));
+                            if ((StringUtils.isBlank(provinceName) && StringUtils.isBlank(yzProvinceName))
+                                    || (StringUtils.isNotBlank(districtName) && districtName.contains("市辖区"))) {
+                                result.setAddressResult("true");
+                            } else {
+                                if (Objects.equals(provinceName, yzProvinceName) && Objects.equals(cityName, yzCityName)
+                                        && StringUtils.isBlank(yzCountyName) && StringUtils.isBlank(districtName)) {
+                                    result.setAddressResult("true");
+                                } else {
+                                    result.setAddressResult(String.valueOf(Objects.equals(outAddress, yzAddress)));
+                                }
+                                //有赞地区为空，三方也不全,无法修复
+                                if (StringUtils.isBlank(yzProvinceName) && StringUtils.isBlank(yzCityName) && StringUtils.isBlank(yzCountyName)
+                                        && (StringUtils.isBlank(provinceName) || StringUtils.isBlank(cityName) || StringUtils.isBlank(districtName))
+                                ) {
+                                    result.setAddressResult("true");
+                                }
 
+                                //三方地区为空，有赞也不全,无法修复
+                                if (StringUtils.isBlank(provinceName) && StringUtils.isBlank(cityName) && StringUtils.isBlank(districtName)
+                                        && (StringUtils.isBlank(yzProvinceName) || StringUtils.isBlank(yzCityName) || StringUtils.isBlank(yzCountyName))
+                                ) {
+                                    result.setAddressResult("true");
+                                }
+                            }
                             //积分对齐
                             Long points = data.getPoints();
                             Integer point = outMemberDetail.getPoint();
@@ -583,17 +638,21 @@ public class KaiLeShiMemberAlignController {
                             } else {
                                 result.setLevelResult("false");
                             }
-
-                            Long kdtId = data.getMemberSourceKdtId();
-                            result.setYzShopId(kdtId.toString());
                             result.setOutShop(outMemberDetail.getShopCode());
-                            List<ShopRelationDO> shopRelationList = shopRelationMapper.getByBranchId(appId, kdtId, "UP");
-                            if (CollectionUtils.isNotEmpty(shopRelationList)) {
-                                result.setYzShopNo(shopRelationList.get(0).getOutBranchId());
-                                result.setShopResult(String.valueOf(Objects.equals(result.getYzShopNo(), outMemberDetail.getShopCode())));
+                            Long kdtId = data.getMemberSourceKdtId();
+                            if (Objects.isNull(kdtId)) {
+                                result.setShopResult("false");
                             } else {
-                                result.setShopResult("店铺未映射");
+                                result.setYzShopId(kdtId.toString());
+                                List<ShopRelationDO> shopRelationList = shopRelationMapper.getByBranchId(appId, kdtId, "UP");
+                                if (CollectionUtils.isNotEmpty(shopRelationList)) {
+                                    result.setYzShopNo(shopRelationList.get(0).getOutBranchId());
+                                    result.setShopResult(String.valueOf(result.getYzShopNo().equalsIgnoreCase(outMemberDetail.getShopCode())));
+                                } else {
+                                    result.setShopResult("店铺未映射");
+                                }
                             }
+
 
                             kaiLeShiMemberAlignResultMapper.insertSelective(result);
 
@@ -622,23 +681,19 @@ public class KaiLeShiMemberAlignController {
                 return MemberSourceChannelEnum.TMALL.getValue();
             case "JD":
                 return MemberSourceChannelEnum.JINGDONG.getValue();
-            case "YOUZAN":
-                return MemberSourceChannelEnum.WECHAT_MINI_PROGRAMS.getValue();
             case "POS":
-                return MemberSourceChannelEnum.OFFLINE_STORE.getValue();
-            case "WECHAT":
-                return MemberSourceChannelEnum.OTHER.getValue();
+                return MemberSourceChannelEnum.OUTER_STORE.getValue();
             case "DOUYIN":
                 return MemberSourceChannelEnum.DOUYIN.getValue();
             default:
-                return null;
+                return 0;
         }
     }
 
 
     public static String memberQuery(String mobile) throws IOException {
-        if(mobile.startsWith("+")) {
-            mobile = mobile.replace("+","%2B");
+        if (mobile.startsWith("+")) {
+            mobile = mobile.replace("+", "%2B");
         }
         String timeStamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
         String callService = "omni-api";

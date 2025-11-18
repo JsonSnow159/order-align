@@ -50,6 +50,7 @@ public class KaiLeShiMemberAlignService {
     // region 状态常量
     private static final int STATUS_PENDING = 0;
     private static final int STATUS_NOT_FOUND = 4;
+    private static final int YZ_STATUS_NOT_FOUND = 5;
     private static final int STATUS_DETAIL_QUERIED = 3;
     private static final int STATUS_PROCESSING_FAILED = 7;
     private static final int STATUS_MAPPING_MISMATCH = 8;
@@ -161,7 +162,7 @@ public class KaiLeShiMemberAlignService {
                         YouzanScrmCustomerDetailGetResult yzResult = yzFuture.join();
                         if (yzResult == null || !yzResult.getSuccess() || yzResult.getData() == null) {
                             log.warn("[{}] [MEMBER_STEP_2_FAIL] 有赞会员查询失败: {}", appId, mobile);
-                            updateMemberStatus(member, STATUS_NOT_FOUND);
+                            updateMemberStatus(member, YZ_STATUS_NOT_FOUND);
                             return CompletableFuture.<Void>completedFuture(null);
                         }
                         log.info("[{}] [MEMBER_STEP_2_SUCCESS] 有赞详情查询成功: {}", appId, mobile);

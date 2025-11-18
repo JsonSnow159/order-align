@@ -10,6 +10,7 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface KaiLeShiMemberAlignResultMapper {
     int insertSelective(KaiLeShiMemberAlignResult record);
-
+    KaiLeShiMemberAlignResult selectByAppIdAndMobile(String appId,String mobile);
     int updateByPrimaryKeySelective(KaiLeShiMemberAlignResult record);
+    int delete(Long id);
 }

@@ -113,12 +113,7 @@ public class KaiLeShiMemberDataFixController {
                 }
 
                 log.info("Stage '{}' iteration complete. Pausing for 5 seconds.", this.currentStage);
-                TimeUnit.SECONDS.sleep(5);
 
-            } catch (InterruptedException e) {
-                log.warn("Data fix loop for stage '{}' interrupted. Shutting down.", this.currentStage);
-                isFixRunning.set(false); // Stop the loop
-                Thread.currentThread().interrupt(); // Preserve the interrupted status
             } catch (Exception e) {
                 log.error("Error during data fix process for stage '" + this.currentStage + "', stopping loop.", e);
                 isFixRunning.set(false); // Stop the loop on other errors
