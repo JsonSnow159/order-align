@@ -172,4 +172,15 @@
         </set>
         where id = #{id,jdbcType=BIGINT}
     </update>
+
+    <select id="selectByAppIdAndMobile" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from kai_le_shi_member_align_result
+        where app_id = #{appId,jdbcType=VARCHAR} and mobile = #{mobile,jdbcType=VARCHAR}
+    </select>
+
+    <delete id="delete">
+        delete from kai_le_shi_member_align_result where id = #{id}
+    </delete>
 </mapper>

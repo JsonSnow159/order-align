@@ -507,9 +507,14 @@ public class KaiLeShiMemberAlignController {
                             String memberName = outMemberDetail.getMemberName();
                             result.setOutName(memberName);
                             if (Objects.equals(yzName, "未知") && StringUtils.isBlank(memberName)) {
-                                yzName = null;
+                                result.setNameResult("true");
+                            } else if (Objects.equals(memberName, "未知") && StringUtils.isBlank(yzName)) {
+                                result.setNameResult("true");
+                            } else if (StringUtils.isBlank(memberName) && StringUtils.isBlank(yzName)) {
+                                result.setNameResult("true");
+                            } else {
+                                result.setNameResult(String.valueOf(Objects.equals(yzName, memberName)));
                             }
-                            result.setNameResult(String.valueOf(Objects.equals(yzName, memberName)));
 
                             //性别比对
                             Short gender = data.getGender();
