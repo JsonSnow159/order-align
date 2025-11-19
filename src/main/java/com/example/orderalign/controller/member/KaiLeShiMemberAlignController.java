@@ -603,14 +603,14 @@ public class KaiLeShiMemberAlignController {
                                     result.setAddressResult(String.valueOf(Objects.equals(outAddress, yzAddress)));
                                 }
                                 //有赞地区为空，三方也不全,无法修复
-                                if (StringUtils.isBlank(yzProvinceName) && StringUtils.isBlank(yzCityName) && StringUtils.isBlank(yzCountyName)
+                                if ((StringUtils.isBlank(yzProvinceName) || StringUtils.isBlank(yzCityName) || StringUtils.isBlank(yzCountyName))
                                         && (StringUtils.isBlank(provinceName) || StringUtils.isBlank(cityName) || StringUtils.isBlank(districtName))
                                 ) {
                                     result.setAddressResult("true");
                                 }
 
                                 //三方地区为空，有赞也不全,无法修复
-                                if (StringUtils.isBlank(provinceName) && StringUtils.isBlank(cityName) && StringUtils.isBlank(districtName)
+                                if ((StringUtils.isBlank(provinceName) || StringUtils.isBlank(cityName) || StringUtils.isBlank(districtName))
                                         && (StringUtils.isBlank(yzProvinceName) || StringUtils.isBlank(yzCityName) || StringUtils.isBlank(yzCountyName))
                                 ) {
                                     result.setAddressResult("true");
@@ -621,6 +621,9 @@ public class KaiLeShiMemberAlignController {
                             Integer point = outMemberDetail.getPoint();
                             result.setYzPoint(points.intValue());
                             result.setOutPoint(point);
+                            if (Objects.isNull(point)) {
+                                point = 0;
+                            }
                             result.setPointResult(String.valueOf(Objects.equals(points.intValue(), point)));
 
                             //等级对齐
