@@ -641,8 +641,12 @@ public class KaiLeShiMemberAlignController {
                             String memberGrade = outMemberDetail.getMemberGrade();
                             result.setOutLevel(memberGrade);
                             if (StringUtils.isNotBlank(levelName)) {
-                                String mLevelName = levelMap.get(levelName);
-                                result.setLevelResult(String.valueOf(Objects.equals(mLevelName, memberGrade)));
+                                if(StringUtils.isBlank(memberGrade)) {
+                                    result.setLevelResult("true");
+                                } else {
+                                    String mLevelName = levelMap.get(levelName);
+                                    result.setLevelResult(String.valueOf(Objects.equals(mLevelName, memberGrade)));
+                                }
                             } else {
                                 result.setLevelResult("false");
                             }
@@ -655,6 +659,9 @@ public class KaiLeShiMemberAlignController {
                                 List<ShopRelationDO> shopRelationList = shopRelationMapper.getByBranchId(appId, kdtId, "UP");
                                 if (CollectionUtils.isNotEmpty(shopRelationList)) {
                                     result.setYzShopNo(shopRelationList.get(0).getOutBranchId());
+                                    if(result.getYzShopNo().contains("ZP")) {
+                                        result.setYzShopNo(result.getYzShopNo().replace("ZP",""));
+                                    }
                                     result.setShopResult(String.valueOf(result.getYzShopNo().equalsIgnoreCase(outMemberDetail.getShopCode())));
                                 } else {
                                     result.setShopResult("店铺未映射");
