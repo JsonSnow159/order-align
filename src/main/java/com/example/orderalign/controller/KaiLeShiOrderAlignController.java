@@ -737,6 +737,7 @@ public class KaiLeShiOrderAlignController {
                                 }
 
                                 String yzOutOid = outOrder.getOutOid();
+                                String outTitle = outOrder.getTitle();
                                 Long totalFee = Math.abs(outOrder.getTotalFee());
                                 outTotalAmount += totalFee;
                                 Long outPayment = Math.abs(outOrder.getPayment());
@@ -753,6 +754,7 @@ public class KaiLeShiOrderAlignController {
                                 boolean itemDiscountPriceAlign = true;
                                 boolean itemTotalAmountAlign = true;
                                 boolean itemPaymentAlign = true;
+                                boolean itemTitleAlign = true;
 //                        boolean guideAlign = true;
 
                                 for (YzOrderDetail.SubOrder yzOid : oidList) {
@@ -778,6 +780,10 @@ public class KaiLeShiOrderAlignController {
                                             itemPriceAlign = false;
                                         }
 
+                                        String yzTitle = yzOid.getTitle();
+                                        if (!Objects.equals(yzTitle, outTitle)) {
+                                            itemTitleAlign = false;
+                                        }
                                         Long discountPrice = yzOid.getDiscountPrice();
                                         if (!Objects.equals(outDiscountPrice, discountPrice)) {
                                             itemDiscountPriceAlign = false;
@@ -813,6 +819,9 @@ public class KaiLeShiOrderAlignController {
                                             }
                                             if (!itemPaymentAlign) {
                                                 sb.append("商品实付总额不一致;");
+                                            }
+                                            if (!itemTitleAlign) {
+                                                sb.append("商品名称不一致;");
                                             }
                                         }
                                     }
@@ -890,12 +899,22 @@ public class KaiLeShiOrderAlignController {
                                             yzOpenId = shoppingGuideRelation.getYzOpenId();
                                             bucket.set(yzOpenId, 24, TimeUnit.HOURS); // Cache the found yzOpenId
                                         } else {
-                                            // Cache the fact that it's not found to prevent repeated DB calls
-                                            bucket.set("", 24, TimeUnit.HOURS);
-                                            yzOpenId = ""; // Use empty string to represent not found
+                                            //通过手机号查询一下有赞导购
+                                            String yzGuideOpenIdStr = queryYzGuideOpenIdByMobile(outGuideCode);
+                                            if (StringUtils.isNotBlank(yzGuideOpenIdStr)) {
+                                                JSONObject jsonObject1 = JSON.parseObject(yzGuideOpenIdStr);
+                                                JSONObject dataObj = jsonObject1.getJSONObject("data");
+                                                if(Objects.nonNull(dataObj)) {
+                                                    yzOpenId = dataObj.getString("yz_open_id");
+                                                    bucket.set(yzOpenId, 24, TimeUnit.HOURS);
+                                                } else {
+                                                    // Cache the fact that it's not found to prevent repeated DB calls
+                                                    bucket.set("", 24, TimeUnit.HOURS);
+                                                    yzOpenId = ""; // Use empty string to represent not found
+                                                }
+                                            }
                                         }
                                     }
-
                                     if (StringUtils.isBlank(yzOpenId)) {
                                         daogouResult = "存在未映射导购";
                                         break;
@@ -929,6 +948,20 @@ public class KaiLeShiOrderAlignController {
         }
         log.info("订单对账任务结束");
         return YzCloudResponse.success();
+    }
+
+    private String queryYzGuideOpenIdByMobile(String outGuideCode) throws IOException {
+        MediaType mediaType = MediaType.parse("application/json");
+        okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\n    \"request\":{\n        \"mobile\":\"%s\"\n    }\n}", outGuideCode));
+        Request request = new Request.Builder()
+                .url("https://open.youzanyun.com/api/youzan.guide.shoppingguide.get/2.0.0?access_token=9398fced3de01d4c9e858d9b84d19fd")
+                .method("POST", body)
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Cookie", "acw_tc=ed13b12cd2861c0621c347c5a26b42b19c736213fa37cdb51cde5aebf9257ba3")
+                .build();
+        Response response = client.newCall(request).execute();
+        String responseStr = response.body().string();
+        return responseStr;
     }
 
     public static String parseEanCode(String eanCode, String productCode) {
