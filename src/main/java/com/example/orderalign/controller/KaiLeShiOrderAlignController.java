@@ -682,6 +682,7 @@ public class KaiLeShiOrderAlignController {
                                 result.setOutShopNo(outOrderDetail.getShopCode());
                                 result.setShopResult(String.valueOf(Objects.equals(result.getYzShopNo(), result.getOutShopNo())));
                             } else {
+                                result.setOutShopNo(outOrderDetail.getShopCode());
                                 result.setShopResult("店铺未映射");
                             }
                             result.setIsMockItemId("false");
