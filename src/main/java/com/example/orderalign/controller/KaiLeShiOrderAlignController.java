@@ -10,18 +10,10 @@ import com.example.orderalign.dto.kylin.KLSItemQueryRequest;
 import com.example.orderalign.dto.kylin.KLSItemQueryResponse;
 import com.example.orderalign.dto.kylin.KaileshiOrderQueryResponseDTO;
 import com.example.orderalign.dto.kylin.KaileshiOrderQuerySubItemResponseDTO;
-import com.example.orderalign.mapper.KaiLeShiOrderAlignMapper;
-import com.example.orderalign.mapper.KaiLeShiOrderAlignResultMapper;
-import com.example.orderalign.mapper.ThirdPartyOrderDetailMapper;
-import com.example.orderalign.mapper.YouzanOrderDetailMapper;
-import com.example.orderalign.model.KaiLeShiOrderAlign;
-import com.example.orderalign.model.KaiLeShiOrderAlignResult;
-import com.example.orderalign.model.ThirdPartyOrderDetail;
-import com.example.orderalign.model.YouzanOrderDetail;
+import com.example.orderalign.mapper.*;
+import com.example.orderalign.model.*;
 import com.example.orderalign.utils.KaileshiUtil;
 import com.example.orderalign.utils.SignUtil;
-import com.example.orderalign.mapper.KaiLeShiOrderRefundAlignMapper;
-import com.example.orderalign.model.KaiLeShiOrderRefundAlign;
 import com.youzan.cloud.connector.sdk.client.YzCloudResponse;
 import com.youzan.cloud.connector.sdk.common.exception.RecoverableException;
 import com.youzan.cloud.connector.sdk.common.exception.UnrecoverableException;
@@ -85,6 +77,8 @@ public class KaiLeShiOrderAlignController {
     private ShopRelationMapper shopRelationMapper;
     @Resource
     private InfraShoppingGuideRelationMapper infraShoppingGuideRelationMapper;
+    @Resource
+    private NotExistItemMapper notExistItemMapper;
     private static final String ITEM_API_URL = "https://api-ekailas.kylin.shuyun.com/omni-api/v1/youzan/member/product/list";
     @Resource
     private RedissonClient redissonClient;
@@ -627,6 +621,8 @@ public class KaiLeShiOrderAlignController {
 
                             // Member alignment
                             result.setYzMemberId(yzOrderDetail.getYzOpenId());
+                            result.setCustomerNo(outOrderDetail.getCustomerNo());
+                            result.setOutMemberId(outOrderDetail.getMemberId());
                             UserRelationDO userRelation = infraUserRelationMapper.getByYzOpenId(appId, rootKdtId, yzOrderDetail.getYzOpenId());
                             if (Objects.nonNull(userRelation)) {
                                 String outOpenId = userRelation.getOutOpenId();
@@ -676,6 +672,7 @@ public class KaiLeShiOrderAlignController {
                             // Shop alignment
                             Long kdtId = yzOrderDetail.getKdtId();
                             result.setNodeKdtId(kdtId);
+                            result.setOutShopNo(outOrderDetail.getShopCode());
                             List<ShopRelationDO> shopRelationList = shopRelationMapper.getByBranchId(appId, kdtId, "UP");
                             if (CollectionUtils.isNotEmpty(shopRelationList)) {
                                 result.setYzShopNo(shopRelationList.get(0).getOutBranchId());
@@ -761,16 +758,28 @@ public class KaiLeShiOrderAlignController {
                                 for (YzOrderDetail.SubOrder yzOid : oidList) {
                                     String outOid = yzOid.getOutOid();
                                     if (Objects.equals(yzOutOid, outOid)) {
+                                        Long itemId = yzOid.getItemId();
+                                        Long skuId = yzOid.getSkuId();
                                         String yzItemNo = yzOid.getItemNo();
                                         String yzSkuNo = yzOid.getSkuNo();
-                                        if (StringUtils.isBlank(outSkuNo) && StringUtils.isNotBlank(yzSkuNo)) {
-                                            itemNoAlign = false;
-                                        } else if (Objects.equals(outItemNo, yzItemNo) && StringUtils.isNotBlank(outSkuNo) && !yzSkuNo.startsWith("69") && outSkuNo.startsWith("69")) {
-                                            //有赞不为69开头，三方为69开头，视为一致
-                                            itemNoAlign = true;
-                                        } else if (!(Objects.equals(outItemNo, yzItemNo) && Objects.equals(outSkuNo, yzSkuNo))) {
-                                            itemNoAlign = false;
+                                        NotExistItem notExistItem = notExistItemMapper.selectByKdtIdAndItemNoAndSkuNo(42243307L, outItemNo, outSkuNo);
+                                        //虚拟商品
+                                        if (Objects.isNull(notExistItem)) {
+                                            if (Objects.equals(outItemNo, yzItemNo) || Objects.equals(outSkuNo, yzSkuNo)) {
+                                                //有赞不为69开头，三方为69开头，视为一致
+                                                itemNoAlign = true;
+                                            }
+                                        } else {
+                                            if (StringUtils.isBlank(outSkuNo) && StringUtils.isNotBlank(yzSkuNo)) {
+                                                itemNoAlign = false;
+                                            } else if (Objects.equals(outItemNo, yzItemNo) && StringUtils.isNotBlank(outSkuNo) && !yzSkuNo.startsWith("69") && outSkuNo.startsWith("69")) {
+                                                //有赞不为69开头，三方为69开头，视为一致
+                                                itemNoAlign = true;
+                                            } else if (!(Objects.equals(outItemNo, yzItemNo) && Objects.equals(outSkuNo, yzSkuNo))) {
+                                                itemNoAlign = false;
+                                            }
                                         }
+
                                         Integer yzNum = yzOid.getNum();
                                         if (!outNum.equals(yzNum)) {
                                             itemNumAlign = false;
@@ -805,6 +814,8 @@ public class KaiLeShiOrderAlignController {
                                                 sb.append("数云商品编码:" + outItemNo + ";");
                                                 sb.append("有赞规格编码:" + yzSkuNo + ";");
                                                 sb.append("数云规格编码:" + outSkuNo + ";");
+                                                sb.append("有赞商品ID:" + itemId + ";");
+                                                sb.append("有赞规格ID:" + skuId + ";");
                                             }
                                             if (!itemNumAlign) {
                                                 sb.append("下单数量不一致;");
@@ -880,7 +891,7 @@ public class KaiLeShiOrderAlignController {
                                 guideNos = guideNos.stream().distinct().collect(Collectors.toList());
                                 result.setYzGuideNoList(String.join(",", guideNos));
                             }
-                            if (StringUtils.isNotBlank(guideCode)) {
+                            if (StringUtils.isNotBlank(guideCode) && !Objects.equals(guideCode,",")) {
                                 String[] outGuideCodes = guideCode.split(",");
                                 for (String outGuideCode : outGuideCodes) {
                                     String yzOpenId = null;
@@ -905,7 +916,7 @@ public class KaiLeShiOrderAlignController {
                                             if (StringUtils.isNotBlank(yzGuideOpenIdStr)) {
                                                 JSONObject jsonObject1 = JSON.parseObject(yzGuideOpenIdStr);
                                                 JSONObject dataObj = jsonObject1.getJSONObject("data");
-                                                if(Objects.nonNull(dataObj)) {
+                                                if (Objects.nonNull(dataObj)) {
                                                     yzOpenId = dataObj.getString("yz_open_id");
                                                     bucket.set(yzOpenId, 24, TimeUnit.HOURS);
                                                 } else {
