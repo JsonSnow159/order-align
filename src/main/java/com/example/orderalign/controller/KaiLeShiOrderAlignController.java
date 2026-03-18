@@ -10,6 +10,7 @@ import com.example.orderalign.dto.kylin.KLSItemQueryRequest;
 import com.example.orderalign.dto.kylin.KLSItemQueryResponse;
 import com.example.orderalign.dto.kylin.KaileshiOrderQueryResponseDTO;
 import com.example.orderalign.dto.kylin.KaileshiOrderQuerySubItemResponseDTO;
+import com.example.orderalign.dto.member.OutMemberDetail;
 import com.example.orderalign.mapper.*;
 import com.example.orderalign.model.*;
 import com.example.orderalign.utils.KaileshiUtil;
@@ -230,7 +231,7 @@ public class KaiLeShiOrderAlignController {
                             String kylinOrderDetailStr = kylinOrderDetailQuery(outTid);
                             if (StringUtils.isNotBlank(kylinOrderDetailStr)) {
                                 JSONArray data = JSON.parseObject(kylinOrderDetailStr).getJSONArray("data");
-                                if(!data.isEmpty()) {
+                                if (!data.isEmpty()) {
                                     kaileshiOrderQueryResponse = JSON.parseObject(JSON.toJSONString(data.getJSONObject(0)), KaileshiOrderQueryResponseDTO.class);
                                 } else {
                                     orderAlign.setStatus(STATUS_NOT_FOUND);
@@ -634,21 +635,64 @@ public class KaiLeShiOrderAlignController {
                             result.setYzMemberId(yzOrderDetail.getYzOpenId());
                             result.setCustomerNo(outOrderDetail.getCustomerNo());
                             result.setOutMemberId(outOrderDetail.getMemberId());
-                            UserRelationDO userRelation = infraUserRelationMapper.getByYzOpenId(appId, rootKdtId, yzOrderDetail.getYzOpenId());
-                            if (Objects.nonNull(userRelation)) {
-                                String outOpenId = userRelation.getOutOpenId();
-                                result.setOutOpenId(outOpenId);
-                                //渠道用户id比对
-                                if (StringUtils.isNotBlank(outOpenId) && !outOpenId.startsWith("K")) {
-                                    result.setCustomerNo(outOrderDetail.getCustomerNo());
-                                    result.setMemberIdResult(String.valueOf(Objects.equals(outOpenId, result.getCustomerNo())));
-                                } else {
-                                    //会员id比对
-                                    result.setOutMemberId(outOrderDetail.getMemberId());
-                                    result.setMemberIdResult(String.valueOf(Objects.equals(outOpenId, result.getOutMemberId())));
+
+                            //有赞id先检验，是否有效
+                            if (StringUtils.isNotBlank(yzOrderDetail.getMobile())) {
+                                String yzOpenIdQueryStr = queryYzOpenId(yzOrderDetail.getMobile());
+                                YouzanScrmCustomerDetailGetResult customerDetailGetResult = JSON.parseObject(yzOpenIdQueryStr, YouzanScrmCustomerDetailGetResult.class);
+                                String newestYzOpenId = customerDetailGetResult.getData().getYzOpenId();
+                                if (!Objects.equals(yzOrderDetail.getYzOpenId(), newestYzOpenId)) {
+                                    //产生了换绑
+                                    result.setMemberIdResult("true");
                                 }
                             } else {
-                                result.setMemberIdResult("会员映射不存在");
+                                if (StringUtils.isNotBlank(yzOrderDetail.getYzOpenId())) {
+                                    String yzOpenIdQueryStr = queryBzYzOpenId(yzOrderDetail.getYzOpenId());
+                                    YouzanScrmCustomerDetailGetResult customerDetailGetResult = JSON.parseObject(yzOpenIdQueryStr, YouzanScrmCustomerDetailGetResult.class);
+                                    if (Objects.isNull(customerDetailGetResult.getData())) {
+                                        //产生了注销
+                                        result.setMemberIdResult("true");
+                                    }
+                                }
+                            }
+                            if (!Objects.equals(result.getMemberIdResult(), "true")) {
+                                UserRelationDO userRelation = infraUserRelationMapper.getByYzOpenId(appId, rootKdtId, yzOrderDetail.getYzOpenId());
+                                if (Objects.nonNull(userRelation)) {
+                                    String outOpenId = userRelation.getOutOpenId();
+                                    result.setOutOpenId(outOpenId);
+                                    //渠道用户id比对
+                                    if (StringUtils.isNotBlank(outOpenId) && !outOpenId.startsWith("K")) {
+                                        result.setCustomerNo(outOrderDetail.getCustomerNo());
+                                        result.setMemberIdResult(String.valueOf(Objects.equals(outOpenId, result.getCustomerNo())));
+                                    } else {
+                                        //会员id比对
+                                        result.setOutMemberId(outOrderDetail.getMemberId());
+                                        result.setMemberIdResult(String.valueOf(Objects.equals(outOpenId, result.getOutMemberId())));
+                                    }
+                                } else {
+                                    if (StringUtils.isBlank(outOrderDetail.getMemberId())) {
+                                        //非会员单，视为一致
+                                        result.setMemberIdResult("true");
+                                    }
+
+                                    if (StringUtils.isNotBlank(outOrderDetail.getMemberId())) {
+                                        String kylinMemberDetailStr = memberQuery(outOrderDetail.getMemberId());
+                                        if (StringUtils.isNotBlank(kylinMemberDetailStr)) {
+                                            JSONArray data = JSON.parseObject(kylinMemberDetailStr).getJSONArray("data");
+                                            if (Objects.nonNull(data) && data.size() > 0) {
+                                                OutMemberDetail outMemberDetail = JSON.parseObject(JSON.toJSONString(JSON.parseObject(kylinMemberDetailStr).getJSONArray("data").getJSONObject(0)), OutMemberDetail.class);
+                                                String mobile = outMemberDetail.getMobile();
+                                                if (StringUtils.isBlank(mobile)) {
+                                                    //会员无手机号，视为一致
+                                                    result.setMemberIdResult("true");
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if (!Objects.equals(result.getMemberIdResult(), "true")) {
+                                        result.setMemberIdResult("会员映射不存在");
+                                    }
+                                }
                             }
 
                             // Channel alignment
@@ -902,7 +946,7 @@ public class KaiLeShiOrderAlignController {
                                 guideNos = guideNos.stream().distinct().collect(Collectors.toList());
                                 result.setYzGuideNoList(String.join(",", guideNos));
                             }
-                            if (StringUtils.isNotBlank(guideCode) && !Objects.equals(guideCode,",")) {
+                            if (StringUtils.isNotBlank(guideCode) && !Objects.equals(guideCode, ",")) {
                                 String[] outGuideCodes = guideCode.split(",");
                                 for (String outGuideCode : outGuideCodes) {
                                     String yzOpenId = null;
@@ -971,6 +1015,20 @@ public class KaiLeShiOrderAlignController {
         }
         log.info("订单对账任务结束");
         return YzCloudResponse.success();
+    }
+
+    private String queryBzYzOpenId(String yzOpenId) throws IOException {
+        MediaType mediaType = MediaType.parse("application/json");
+        okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\"fields\":\"user_base\",\"is_do_ext_point\":false,\"yz_open_id\":\"%s\"}", yzOpenId));
+        Request request = new Request.Builder()
+                .url("https://open.youzanyun.com/api/youzan.scrm.customer.detail.get/1.0.1?access_token=8b03e0d8b062a2da758322b4a24a37c")
+                .method("POST", body)
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Cookie", "acw_tc=92a8083254e69a13319c5b46cd8c54db382a5c7ff40aa5e976b0d9f6f8f7f0b4")
+                .build();
+        Response response = client.newCall(request).execute();
+        String responseStr = response.body().string();
+        return responseStr;
     }
 
     private String queryYzGuideOpenIdByMobile(String outGuideCode) throws IOException {
@@ -1127,6 +1185,32 @@ public class KaiLeShiOrderAlignController {
                 }
             }
         }
+    }
+
+    public static String memberQuery(String mobile) throws IOException {
+        if (mobile.startsWith("+")) {
+            mobile = mobile.replace("+", "%2B");
+        }
+        String timeStamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+        String callService = "omni-api";
+        String contextPath = "omni-api";
+        String serviceSecret = "gdis22kslllk2";
+
+        String url = String.format("%s?memberType=kailas&memberId=%s&pageNo=1&pageSize=50",
+                API_URL, mobile);
+
+        Request request = new Request.Builder()
+                .url(url)
+                .method("GET", null)
+                .addHeader("X-Caller-Sign", SignUtil.generateSign(callService, contextPath, "v1", timeStamp, serviceSecret, "/youzan/member/getMemberInfo"))
+                .addHeader("X-Caller-Timestamp", timeStamp)
+                .addHeader("X-Caller-Service", callService)
+                .addHeader("Content-Type", "application/json")
+                .build();
+
+        Response response = client.newCall(request).execute();
+        String responseStr = response.body().string();
+        return responseStr;
     }
 
 
