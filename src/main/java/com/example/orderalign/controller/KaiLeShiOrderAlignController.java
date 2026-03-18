@@ -84,9 +84,9 @@ public class KaiLeShiOrderAlignController {
     private RedissonClient redissonClient;
     private static final String API_URL = "https://api-ekailas.kylin.shuyun.com/omni-api/v1/youzan/member/order/page";
     static OkHttpClient client = new OkHttpClient.Builder()
-            .connectTimeout(3, TimeUnit.SECONDS)    // 连接超时
-            .readTimeout(3, TimeUnit.SECONDS)       // 读取超时
-            .writeTimeout(3, TimeUnit.SECONDS)      // 写入超时
+            .connectTimeout(15, TimeUnit.SECONDS)    // 连接超时
+            .readTimeout(15, TimeUnit.SECONDS)       // 读取超时
+            .writeTimeout(15, TimeUnit.SECONDS)      // 写入超时
             .build();
 
     private static final ExecutorService executor = new ThreadPoolExecutor(
@@ -229,7 +229,15 @@ public class KaiLeShiOrderAlignController {
                             KaileshiOrderQueryResponseDTO kaileshiOrderQueryResponse = new KaileshiOrderQueryResponseDTO();
                             String kylinOrderDetailStr = kylinOrderDetailQuery(outTid);
                             if (StringUtils.isNotBlank(kylinOrderDetailStr)) {
-                                kaileshiOrderQueryResponse = JSON.parseObject(JSON.toJSONString(JSON.parseObject(kylinOrderDetailStr).getJSONArray("data").getJSONObject(0)), KaileshiOrderQueryResponseDTO.class);
+                                JSONArray data = JSON.parseObject(kylinOrderDetailStr).getJSONArray("data");
+                                if(!data.isEmpty()) {
+                                    kaileshiOrderQueryResponse = JSON.parseObject(JSON.toJSONString(data.getJSONObject(0)), KaileshiOrderQueryResponseDTO.class);
+                                } else {
+                                    orderAlign.setStatus(STATUS_NOT_FOUND);
+                                    kaiLeShiOrderAlignMapper.update(orderAlign);
+                                    log.warn("查询数云订单详情失败, outTid: {}", outTid);
+                                    return;
+                                }
                             }
                             if (Objects.isNull(kaileshiOrderQueryResponse)) {
                                 orderAlign.setStatus(STATUS_NOT_FOUND);
@@ -415,10 +423,13 @@ public class KaiLeShiOrderAlignController {
                         try {
                             String tid = orderAlign.getTid();
                             YouzanOrderDetail youzanOrderDetail = youzanOrderDetailMapper.selectByTid(appId, tid);
-                            if (Objects.nonNull(youzanOrderDetail)) {
+                            if (Objects.nonNull(youzanOrderDetail) && StringUtils.isNotBlank(youzanOrderDetail.getTidDetail())) {
                                 orderAlign.setStatus(STATUS_DETAIL_QUERIED);
                                 kaiLeShiOrderAlignMapper.update(orderAlign);
                                 return;
+                            }
+                            if (Objects.nonNull(youzanOrderDetail) && StringUtils.isBlank(youzanOrderDetail.getTidDetail())) {
+                                youzanOrderDetailMapper.deleteByPrimaryKey(youzanOrderDetail.getId());
                             }
                             youzanOrderDetail = new YouzanOrderDetail();
                             youzanOrderDetail.setAppId(appId);
@@ -764,7 +775,7 @@ public class KaiLeShiOrderAlignController {
                                         String yzSkuNo = yzOid.getSkuNo();
                                         NotExistItem notExistItem = notExistItemMapper.selectByKdtIdAndItemNoAndSkuNo(42243307L, outItemNo, outSkuNo);
                                         //虚拟商品
-                                        if (Objects.isNull(notExistItem)) {
+                                        if (Objects.nonNull(notExistItem)) {
                                             if (Objects.equals(outItemNo, yzItemNo) || Objects.equals(outSkuNo, yzSkuNo)) {
                                                 //有赞不为69开头，三方为69开头，视为一致
                                                 itemNoAlign = true;
@@ -966,7 +977,7 @@ public class KaiLeShiOrderAlignController {
         MediaType mediaType = MediaType.parse("application/json");
         okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\n    \"request\":{\n        \"mobile\":\"%s\"\n    }\n}", outGuideCode));
         Request request = new Request.Builder()
-                .url("https://open.youzanyun.com/api/youzan.guide.shoppingguide.get/2.0.0?access_token=9398fced3de01d4c9e858d9b84d19fd")
+                .url("https://open.youzanyun.com/api/youzan.guide.shoppingguide.get/2.0.0?access_token=8b03e0d8b062a2da758322b4a24a37c")
                 .method("POST", body)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Cookie", "acw_tc=ed13b12cd2861c0621c347c5a26b42b19c736213fa37cdb51cde5aebf9257ba3")
@@ -1007,7 +1018,7 @@ public class KaiLeShiOrderAlignController {
         MediaType mediaType = MediaType.parse("application/json");
         okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\"tid\":\"%s\"}", tid));
         Request request = new Request.Builder()
-                .url("https://open.youzanyun.com/api/youzan.trade.get/4.0.2?access_token=6f9403ac56623bd7890c4d8f6a6d19a")
+                .url("https://open.youzanyun.com/api/youzan.trade.get/4.0.2?access_token=8b03e0d8b062a2da758322b4a24a37c")
                 .method("POST", body)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Cookie", "acw_tc=064c13bee4b4da2a4c388a22d53d56e15eaacc2d04ef5b64685587cc076b0b4c")
@@ -1021,7 +1032,7 @@ public class KaiLeShiOrderAlignController {
         MediaType mediaType = MediaType.parse("application/json");
         okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\"fields\":\"user_base\",\"is_do_ext_point\":false,\"account_info\":{\"account_id\":\"%s\",\"account_type\":2}}", mobile));
         Request request = new Request.Builder()
-                .url("https://open.youzanyun.com/api/youzan.scrm.customer.detail.get/1.0.1?access_token=6f9403ac56623bd7890c4d8f6a6d19a")
+                .url("https://open.youzanyun.com/api/youzan.scrm.customer.detail.get/1.0.1?access_token=8b03e0d8b062a2da758322b4a24a37c")
                 .method("POST", body)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Cookie", "acw_tc=92a8083254e69a13319c5b46cd8c54db382a5c7ff40aa5e976b0d9f6f8f7f0b4")
@@ -1065,7 +1076,7 @@ public class KaiLeShiOrderAlignController {
         String contextPath = "omni-api";
         String serviceSecret = "gdis22kslllk2";
         String url = String.format("%s?memberType=kailas&createBeginTime=%s&createEndTime=%s&pageNo=1&pageSize=200&sqId=%s&productCode=%s",
-                ITEM_API_URL, "2010-01-18 00:00:00".replace(" ", "%20"), "2025-12-12 00:00:00".replace(" ", "%20"), itemNo, skuNo);
+                ITEM_API_URL, "2010-01-18 00:00:00".replace(" ", "%20"), "2026-12-12 00:00:00".replace(" ", "%20"), itemNo, skuNo);
 
         Request request = new Request.Builder()
                 .url(url)

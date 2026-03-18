@@ -25,7 +25,7 @@ public class Excel2DB {
      * @param args Command line arguments. Expects one argument: the path to the directory containing Excel files.
      */
     public static void main(String[] args) {
-        String directoryPath = "/Users/app/Downloads/凯乐石相关/全量正单";
+        String directoryPath = "/Users/app/Downloads/凯乐石相关/全量订单号";
         System.out.println("Starting to process files from: " + directoryPath);
         readFromExcelAndUpload(directoryPath);
         System.out.println("Finished processing all files.");

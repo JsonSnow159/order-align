@@ -300,8 +300,8 @@ public class ExcelSplitter {
         try {
             long startTime = System.currentTimeMillis();
 
-            String inputFilePath = "/Users/app/Downloads/交集全量会员.xlsx";
-            String outputDirectory = "/Users/app/Downloads/凯乐石相关/全量会员";
+            String inputFilePath = "/Users/app/Downloads/凯乐石相关/未同步订单号2.xlsx";
+            String outputDirectory = "/Users/app/Downloads/凯乐石相关/全量订单号";
 
             // 获取不带扩展名的文件名
             Path inputPath = Paths.get(inputFilePath);
