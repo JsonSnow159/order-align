@@ -13,6 +13,7 @@ import com.example.orderalign.dto.kylin.KaileshiOrderQuerySubItemResponseDTO;
 import com.example.orderalign.dto.member.OutMemberDetail;
 import com.example.orderalign.mapper.*;
 import com.example.orderalign.model.*;
+import com.example.orderalign.service.KaiLeShiMemberAlignService;
 import com.example.orderalign.utils.KaileshiUtil;
 import com.example.orderalign.utils.SignUtil;
 import com.youzan.cloud.connector.sdk.client.YzCloudResponse;
@@ -84,6 +85,7 @@ public class KaiLeShiOrderAlignController {
     @Resource
     private RedissonClient redissonClient;
     private static final String API_URL = "https://api-ekailas.kylin.shuyun.com/omni-api/v1/youzan/member/order/page";
+    private static final String API_CHANNEL_URL = "https://api-ekailas.kylin.shuyun.com/omni-api/v1/youzan/member/query";
     static OkHttpClient client = new OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)    // 连接超时
             .readTimeout(15, TimeUnit.SECONDS)       // 读取超时
@@ -667,7 +669,23 @@ public class KaiLeShiOrderAlignController {
                                     } else {
                                         //会员id比对
                                         result.setOutMemberId(outOrderDetail.getMemberId());
-                                        result.setMemberIdResult(String.valueOf(Objects.equals(outOpenId, result.getOutMemberId())));
+                                        if (StringUtils.isBlank(outOrderDetail.getMemberId()) && StringUtils.isNotBlank(outOrderDetail.getCustomerNo())) {
+                                            //三方会员ID为空，有赞映射不为空，按映射查询渠道ID,看是否包含该customerNo
+                                            String channelQueryStr = memberChannelQuery(outOpenId);
+                                            JSONObject channelQueryObj = JSON.parseObject(channelQueryStr);
+                                            if (Objects.nonNull(channelQueryObj.getJSONObject("data"))) {
+                                                JSONArray channelInfoList = channelQueryObj.getJSONObject("data").getJSONArray("channelInfoList");
+                                                for (int i = 0; i < channelInfoList.size(); i++) {
+                                                    String customerNo = channelInfoList.getJSONObject(i).getString("customerNo");
+                                                    if (Objects.equals(customerNo, outOrderDetail.getCustomerNo())) {
+                                                        result.setMemberIdResult("true");
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            result.setMemberIdResult(String.valueOf(Objects.equals(outOpenId, result.getOutMemberId())));
+                                        }
                                     }
                                 } else {
                                     if (StringUtils.isBlank(outOrderDetail.getMemberId())) {
@@ -1107,7 +1125,7 @@ public class KaiLeShiOrderAlignController {
         String contextPath = "omni-api";
         String serviceSecret = "gdis22kslllk2";
         String url = String.format("%s?memberType=kailas&orderBeginTime=%s&orderEndTime=%s&pageNo=1&pageSize=20&orderId=%s",
-                API_URL, "2010-11-18 03:00:00".replace(" ", "%20"), "2025-11-18 04:00:00".replace(" ", "%20"), outTid);
+                API_URL, "2010-11-18 03:00:00".replace(" ", "%20"), "2026-11-18 04:00:00".replace(" ", "%20"), outTid);
 
         Request request = new Request.Builder()
                 .url(url)
@@ -1208,6 +1226,26 @@ public class KaiLeShiOrderAlignController {
                 .addHeader("Content-Type", "application/json")
                 .build();
 
+        Response response = client.newCall(request).execute();
+        String responseStr = response.body().string();
+        return responseStr;
+    }
+
+    private String memberChannelQuery(String memberId) throws IOException {
+        String timeStamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+        String callService = "omni-api";
+        String contextPath = "omni-api";
+        String serviceSecret = "gdis22kslllk2";
+        String url = String.format("%s?memberType=kailas&memberId=%s", API_CHANNEL_URL, memberId);
+
+        Request request = new Request.Builder()
+                .url(url)
+                .get()
+                .addHeader("X-Caller-Sign", SignUtil.generateSign(callService, contextPath, "v1", timeStamp, serviceSecret, "/youzan/member/query"))
+                .addHeader("X-Caller-Timestamp", timeStamp)
+                .addHeader("X-Caller-Service", callService)
+                .addHeader("Content-Type", "application/json")
+                .build();
         Response response = client.newCall(request).execute();
         String responseStr = response.body().string();
         return responseStr;
