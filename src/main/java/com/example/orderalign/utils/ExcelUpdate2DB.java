@@ -16,7 +16,7 @@ import java.util.Map;
 
 public class ExcelUpdate2DB {
 
-    private static final String UPLOAD_URL = "http://localhost:8091/kaileshi/reAlignOrder";
+    private static final String UPLOAD_URL = "http://localhost:8091/kaileshi/initAlignOrder";
     private static final RestTemplate restTemplate = new RestTemplate();
     private static final int BATCH_SIZE = 500;
 
