@@ -930,10 +930,12 @@ public class KaiLeShiOrderAlignController {
                                         NotExistItem notExistItem = notExistItemMapper.selectByKdtIdAndItemNoAndSkuNo(42243307L, outItemNo, outSkuNo);
                                         //虚拟商品
                                         if (Objects.nonNull(notExistItem)) {
-                                            if (Objects.equals(outItemNo, yzItemNo) || Objects.equals(outSkuNo, yzSkuNo)) {
-                                                //有赞不为69开头，三方为69开头，视为一致
-                                                itemNoAlign = true;
-                                            }
+                                            itemNoAlign = true;
+                                            result.setIsMockItemId("false");
+//                                            if (Objects.equals(outItemNo, yzItemNo) || Objects.equals(outSkuNo, yzSkuNo)) {
+//                                                //有赞不为69开头，三方为69开头，视为一致
+//
+//                                            }
                                         } else {
                                             if (StringUtils.isBlank(outSkuNo) && StringUtils.isNotBlank(yzSkuNo)) {
                                                 itemNoAlign = false;
