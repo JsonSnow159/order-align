@@ -728,10 +728,14 @@ public class KaiLeShiOrderAlignController {
 
                             if (Objects.isNull(youzanOrderDetail) || StringUtils.isBlank(youzanOrderDetail.getTidDetail())) {
                                 log.error("有赞订单详情不存在, tid: {}", tid);
+                                orderAlign.setStatus(4);
+                                kaiLeShiOrderAlignMapper.update(orderAlign);
                                 return;
                             }
                             if (Objects.isNull(thirdPartyOrderDetail) || StringUtils.isBlank(thirdPartyOrderDetail.getOutTidDetail())) {
                                 log.error("三方订单详情不存在, outTid: {}", outTid);
+                                orderAlign.setStatus(4);
+                                kaiLeShiOrderAlignMapper.update(orderAlign);
                                 return;
                             }
 
@@ -756,8 +760,10 @@ public class KaiLeShiOrderAlignController {
                             //支付时间对齐
                             result.setYzPayTime(yzOrderDetail.getPayTime());
                             result.setOutPayTime(outOrderDetail.getPayTime());
-
                             Date payDate = KaileshiUtil.convertTime2UTC8DateUtil(outOrderDetail.getPayTime());
+                            if (payDate != null && createDate != null && payDate.before(createDate)) {
+                                payDate = createDate;
+                            }
                             String payDateStr = DateFormatUtil.parseDate2Str(payDate);
                             result.setPayTimeResult(String.valueOf(Objects.equals(yzOrderDetail.getPayTime(), payDateStr)));
                             if (StringUtils.isBlank(outOrderDetail.getPayTime())) {
