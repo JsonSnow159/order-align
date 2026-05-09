@@ -154,11 +154,27 @@
         where id = #{id,jdbcType=BIGINT}
     </delete>
 
+    <delete id="deleteByOutTid">
+        delete from kaileshi_order_align_result
+        where app_id = #{appId} and out_tid = #{outTid}
+    </delete>
+
+
+
     <select id="selectByTid" resultMap="BaseResultMap" parameterType="java.lang.String">
         select
         <include refid="Base_Column_List"/>
         from kaileshi_order_align_result
         where app_id = #{appId} and tid = #{tid,jdbcType=VARCHAR}
     </select>
+
+    <select id="selectByOutTid" resultMap="BaseResultMap" parameterType="java.lang.String">
+        select
+        <include refid="Base_Column_List"/>
+        from kaileshi_order_align_result
+        where app_id = #{appId} and out_tid = #{outTid}
+    </select>
+
+
 
 </mapper>

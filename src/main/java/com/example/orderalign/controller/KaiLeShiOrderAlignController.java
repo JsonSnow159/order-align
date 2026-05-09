@@ -229,6 +229,51 @@ public class KaiLeShiOrderAlignController {
         return YzCloudResponse.success();
     }
 
+    @PostMapping("/reAlignOrder2")
+    public YzCloudResponse<Object> reAlignOrder2(@RequestBody OrderAlignDTO param) {
+        log.info("凯乐石订单重新对齐param:{}", param);
+        try {
+            String appId = param.getAppId();
+            if (StringUtils.isBlank(appId)) {
+                return YzCloudResponse.error(400, "appId is required");
+            }
+
+            List<String> outTids = new ArrayList<>();
+            if (StringUtils.isNotBlank(param.getOutTid())) {
+                outTids.add(param.getOutTid());
+            }
+            if (CollectionUtils.isNotEmpty(param.getOutTidList())) {
+                outTids.addAll(param.getOutTidList());
+            }
+
+            if (CollectionUtils.isEmpty(outTids)) {
+                return YzCloudResponse.success("outTid is empty");
+            }
+
+            String[] appIdArr = appId.split("_");
+            long rootKdtId = Long.parseLong(appIdArr[0]);
+
+            for (String outTid : outTids) {
+                KaiLeShiOrderAlign existingLog = kaiLeShiOrderAlignMapper.selectByAppIdAndOutTid(appId, outTid);
+                if (Objects.isNull(existingLog)) {
+                    log.warn("outTid: {} not exists, skipping.", outTid);
+                    continue;
+                }
+
+                KaiLeShiOrderAlign updateLog = new KaiLeShiOrderAlign();
+                updateLog.setId(existingLog.getId());
+                updateLog.setStatus(3);
+                kaiLeShiOrderAlignMapper.update(updateLog);
+                int i = kaiLeShiOrderAlignResultMapper.deleteByOutTid(appId, existingLog.getOutTid());
+                log.info("outTid: {} updated for processing.", outTid);
+            }
+        } catch (Exception e) {
+            log.error("处理失败", e);
+            return YzCloudResponse.error(500, "处理失败:" + e.getMessage());
+        }
+        return YzCloudResponse.success();
+    }
+
     /**
      * 删除订单后，重新创建后对账
      * @param param
@@ -671,10 +716,12 @@ public class KaiLeShiOrderAlignController {
                             String tid = orderAlign.getTid();
                             String outTid = orderAlign.getOutTid();
                             log.info("开始处理单号:{}", tid);
-                            KaiLeShiOrderAlignResult kaiLeShiOrderAlignResult = kaiLeShiOrderAlignResultMapper.selectByTid(appId, tid);
-                            if (Objects.nonNull(kaiLeShiOrderAlignResult)) {
-                                Long id = kaiLeShiOrderAlignResult.getId();
-                                kaiLeShiOrderAlignResultMapper.deleteByPrimaryKey(id);
+                            List<KaiLeShiOrderAlignResult> kaiLeShiOrderAlignResults = kaiLeShiOrderAlignResultMapper.selectByOutTid(appId, outTid);
+                            if (CollectionUtils.isNotEmpty(kaiLeShiOrderAlignResults)) {
+                                for(KaiLeShiOrderAlignResult kaiLeShiOrderAlignResult : kaiLeShiOrderAlignResults) {
+                                    Long id = kaiLeShiOrderAlignResult.getId();
+                                    kaiLeShiOrderAlignResultMapper.deleteByPrimaryKey(id);
+                                }
                             }
                             YouzanOrderDetail youzanOrderDetail = youzanOrderDetailMapper.selectByTid(appId, tid);
                             ThirdPartyOrderDetail thirdPartyOrderDetail = thirdPartyOrderDetailMapper.selectByOutTid(appId, outTid);

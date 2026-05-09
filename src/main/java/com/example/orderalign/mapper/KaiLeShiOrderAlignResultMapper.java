@@ -4,6 +4,8 @@ import com.example.orderalign.model.KaiLeShiOrderAlignResult;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 /**
  * @author jincai.wu
  * @date 2025/9/19
@@ -38,6 +40,7 @@ public interface KaiLeShiOrderAlignResultMapper {
      * @return
      */
     int deleteByPrimaryKey(Long id);
+    int deleteByOutTid(@Param("appId") String appId,@Param("outTid") String outTid);
 
     /**
      * 根据tid查询
@@ -45,5 +48,5 @@ public interface KaiLeShiOrderAlignResultMapper {
      * @return
      */
     KaiLeShiOrderAlignResult selectByTid(@Param("appId") String appId, @Param("tid") String tid);
-
+    List<KaiLeShiOrderAlignResult> selectByOutTid(@Param("appId") String appId, @Param("outTid") String outTid);
 }
