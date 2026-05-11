@@ -900,16 +900,7 @@ public class KaiLeShiOrderAlignController {
                                 result.setOutShopNo(outOrderDetail.getShopCode());
                                 result.setShopResult("店铺未映射");
                             }
-                            result.setIsMockItemId("false");
                             List<YzOrderDetail.SubOrder> oidList = yzOrderDetail.getOidList();
-                            for (YzOrderDetail.SubOrder yzOid : oidList) {
-                                Long itemId = yzOid.getItemId();
-                                Long skuId = yzOid.getSkuId();
-                                if (itemId == 1 || skuId == 1) {
-                                    result.setIsMockItemId("true");
-                                    break;
-                                }
-                            }
                             //subOrder.num
                             //subOrder.price
                             //subOrder.discountPrice
@@ -972,7 +963,7 @@ public class KaiLeShiOrderAlignController {
                                 boolean itemPaymentAlign = true;
                                 boolean itemTitleAlign = true;
 //                        boolean guideAlign = true;
-
+                                result.setIsMockItemId("false");
                                 for (YzOrderDetail.SubOrder yzOid : oidList) {
                                     String outOid = yzOid.getOutOid();
                                     if (Objects.equals(yzOutOid, outOid)) {
@@ -984,7 +975,7 @@ public class KaiLeShiOrderAlignController {
                                         //虚拟商品
                                         if (Objects.nonNull(notExistItem)) {
                                             itemNoAlign = true;
-                                            result.setIsMockItemId("false");
+
 //                                            if (Objects.equals(outItemNo, yzItemNo) || Objects.equals(outSkuNo, yzSkuNo)) {
 //                                                //有赞不为69开头，三方为69开头，视为一致
 //
@@ -997,6 +988,9 @@ public class KaiLeShiOrderAlignController {
                                                 itemNoAlign = true;
                                             } else if (!(Objects.equals(outItemNo, yzItemNo) && Objects.equals(outSkuNo, yzSkuNo))) {
                                                 itemNoAlign = false;
+                                            }
+                                            if (itemId == 1 || skuId == 1) {
+                                                result.setIsMockItemId("true");
                                             }
                                         }
 
