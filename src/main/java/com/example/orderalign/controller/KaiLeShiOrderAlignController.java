@@ -945,6 +945,9 @@ public class KaiLeShiOrderAlignController {
 
                                 String yzOutOid = outOrder.getOutOid();
                                 String outTitle = outOrder.getTitle();
+                                if (outOrder.getTotalFee() < 0) {
+                                    outOrder.setTotalFee(0L);
+                                }
                                 Long totalFee = Math.abs(outOrder.getTotalFee());
                                 outTotalAmount += totalFee;
                                 Long outPayment = Math.abs(outOrder.getPayment());
@@ -1020,6 +1023,11 @@ public class KaiLeShiOrderAlignController {
                                         if (!Objects.equals(payment, outPayment)) {
                                             itemPaymentAlign = false;
                                         }
+                                        Long totalAmount = yzOid.getTotalAmount();
+                                        if (!Objects.equals(totalAmount, totalFee)) {
+                                            itemTotalAmountAlign = false;
+                                        }
+
                                         if (!itemNoAlign || !itemNumAlign || !itemPriceAlign || !itemDiscountPriceAlign || !itemTotalAmountAlign || !itemPaymentAlign) {
                                             sb.append(outOid);
                                             if (!itemNoAlign) {
