@@ -1023,10 +1023,6 @@ public class KaiLeShiOrderAlignController {
                                         if (!Objects.equals(payment, outPayment)) {
                                             itemPaymentAlign = false;
                                         }
-                                        Long totalAmount = yzOid.getTotalAmount();
-                                        if (!Objects.equals(totalAmount, totalFee)) {
-                                            itemTotalAmountAlign = false;
-                                        }
 
                                         if (!itemNoAlign || !itemNumAlign || !itemPriceAlign || !itemDiscountPriceAlign || !itemTotalAmountAlign || !itemPaymentAlign) {
                                             sb.append(outOid);
