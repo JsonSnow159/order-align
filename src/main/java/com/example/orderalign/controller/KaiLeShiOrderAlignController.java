@@ -87,9 +87,9 @@ public class KaiLeShiOrderAlignController {
     private static final String API_URL = "https://api-ekailas.kylin.shuyun.com/omni-api/v1/youzan/member/order/page";
     private static final String API_CHANNEL_URL = "https://api-ekailas.kylin.shuyun.com/omni-api/v1/youzan/member/query";
     static OkHttpClient client = new OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)    // 连接超时
-            .readTimeout(15, TimeUnit.SECONDS)       // 读取超时
-            .writeTimeout(15, TimeUnit.SECONDS)      // 写入超时
+            .connectTimeout(50, TimeUnit.SECONDS)    // 连接超时
+            .readTimeout(50, TimeUnit.SECONDS)       // 读取超时
+            .writeTimeout(50, TimeUnit.SECONDS)      // 写入超时
             .build();
 
     private static final ExecutorService executor = new ThreadPoolExecutor(

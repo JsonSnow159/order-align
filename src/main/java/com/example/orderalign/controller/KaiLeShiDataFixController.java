@@ -7,9 +7,14 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.orderalign.mapper.KaiLeShiOrderAlignMapper;
+import com.example.orderalign.model.KaiLeShiOrderAlign;
+import org.apache.commons.collections.CollectionUtils;
+
 import javax.annotation.PreDestroy;
 import javax.annotation.Resource;
-import java.util.concurrent.CompletableFuture;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -22,6 +27,14 @@ public class KaiLeShiDataFixController {
 
     @Resource
     private KaiLeShiOrderAlignController kaiLeShiOrderAlignController;
+
+    @Resource
+    private KaiLeShiOrderAlignMapper kaiLeShiOrderAlignMapper;
+
+    private static final int STATUS_PENDING = 0;
+    private static final int STATUS_FOUND = 1;
+    private static final int STATUS_DETAIL_QUERIED = 3;
+    private static final int STATUS_OUT_DETAIL_QUERIED = 5;
 
     @Value("${kaileshi.align.appId}")
     private String appId;
@@ -76,52 +89,66 @@ public class KaiLeShiDataFixController {
 
     private void runFixLoop() {
         log.info("Starting continuous data fix loop...");
-        // This executor is for running the 4 methods in parallel inside the loop
-        ExecutorService innerExecutor = Executors.newFixedThreadPool(4);
+        int consecutiveErrors = 0;
+        final int maxConsecutiveErrors = 5;
 
         while (isFixRunning.get()) {
             try {
-                log.debug("Running data fix iteration with parallel steps...");
+                // Check if there is any data to process in the pipeline
+                boolean hasData = false;
+                List<Integer> activeStatuses = Arrays.asList(STATUS_PENDING, STATUS_OUT_DETAIL_QUERIED, STATUS_FOUND, STATUS_DETAIL_QUERIED);
+                for (int status : activeStatuses) {
+                    List<KaiLeShiOrderAlign> list = kaiLeShiOrderAlignMapper.selectByStatusWithLimit(status, 1);
+                    if (CollectionUtils.isNotEmpty(list)) {
+                        hasData = true;
+                        break;
+                    }
+                }
+
+                if (!hasData) {
+                    log.info("No more pending data found in the pipeline. Exiting data fix loop.");
+                    isFixRunning.set(false);
+                    break;
+                }
+
+                log.info("Running data fix iteration with sequential pipeline steps...");
 
                 OrderAlignDTO dto = new OrderAlignDTO();
                 dto.setAppId(appId);
                 dto.setRootKdtId(rootKdtId);
 
-//                CompletableFuture<Void> future1 = CompletableFuture.runAsync(() -> kaiLeShiOrderAlignController.queryOutDetail(dto), innerExecutor);
-//                CompletableFuture<Void> future2 = CompletableFuture.runAsync(() -> kaiLeShiOrderAlignController.queryTid(dto), innerExecutor);
-//                CompletableFuture<Void> future3 = CompletableFuture.runAsync(() -> kaiLeShiOrderAlignController.queryYzDetail(dto), innerExecutor);
-                CompletableFuture<Void> future4 = CompletableFuture.runAsync(() -> kaiLeShiOrderAlignController.detailAlign(dto), innerExecutor);
+                // Execute the pipeline steps sequentially
+                kaiLeShiOrderAlignController.queryOutDetail(dto);
+                kaiLeShiOrderAlignController.queryTid(dto);
+                kaiLeShiOrderAlignController.queryYzDetail(dto);
+                kaiLeShiOrderAlignController.detailAlign(dto);
 
-                // Wait for all 4 parallel tasks in this iteration to complete
-//                CompletableFuture.allOf(future1, future2, future3, future4).join();
-//                CompletableFuture.allOf(future1).join();
-//                CompletableFuture.allOf(future2).join();
-//                CompletableFuture.allOf(future3).join();
-                CompletableFuture.allOf(future4).join();
-
-                log.debug("Parallel data fix iteration completed.");
+                log.info("Data fix iteration completed successfully.");
+                consecutiveErrors = 0; // Reset consecutive errors on successful execution
 
             } catch (Exception e) {
-                log.error("Error during parallel data fix process, stopping loop.", e);
-                isFixRunning.set(false); // Stop the loop on error
+                consecutiveErrors++;
+                log.error("Error during data fix process (consecutive errors: {}/{})", consecutiveErrors, maxConsecutiveErrors, e);
+                
+                if (consecutiveErrors >= maxConsecutiveErrors) {
+                    log.error("Reached maximum consecutive errors limit. Stopping loop to prevent infinite retry loops.");
+                    isFixRunning.set(false);
+                    break;
+                }
+
+                try {
+                    // Backoff sleep before retrying
+                    TimeUnit.SECONDS.sleep(5);
+                } catch (InterruptedException ie) {
+                    log.info("Data fix loop interrupted during error backoff sleep. Stopping loop.");
+                    isFixRunning.set(false);
+                    Thread.currentThread().interrupt();
+                    break;
+                }
             }
         }
 
-        // Shutdown the inner executor when the loop finishes
-        shutdownInnerExecutor(innerExecutor);
         log.info("Continuous data fix loop has stopped.");
-    }
-
-    private void shutdownInnerExecutor(ExecutorService executor) {
-        executor.shutdown();
-        try {
-            if (!executor.awaitTermination(30, TimeUnit.SECONDS)) {
-                executor.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            executor.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
     }
 
     @PreDestroy
