@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.orderalign.mapper.KlsOrderMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.orderalign.model.KlsOrder">
+        <id column="id" jdbcType="BIGINT" property="id"/>
+        <result column="tid" jdbcType="VARCHAR" property="tid"/>
+        <result column="out_tid" jdbcType="VARCHAR" property="outTid"/>
+        <result column="status" jdbcType="INTEGER" property="status"/>
+        <result column="created_at" jdbcType="TIMESTAMP" property="createdAt"/>
+        <result column="updated_at" jdbcType="TIMESTAMP" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, tid, out_tid, status, created_at, updated_at
+    </sql>
+
+    <select id="selectByStatusAndIdGreaterThan" resultMap="BaseResultMap">
+        SELECT 
+        <include refid="Base_Column_List"/>
+        FROM kls_order
+        WHERE status = #{status, jdbcType=INTEGER}
+          AND id &gt; #{lastId, jdbcType=BIGINT}
+        ORDER BY id ASC
+        LIMIT #{limit, jdbcType=INTEGER}
+    </select>
+</mapper>

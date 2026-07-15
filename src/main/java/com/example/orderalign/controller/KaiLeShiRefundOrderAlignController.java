@@ -298,6 +298,8 @@ public class KaiLeShiRefundOrderAlignController {
                             orderAlign.setType("正常退单");
                             kaiLeShiOrderRefundAlignMapper.update(orderAlign);
                         } catch (Exception e) {
+                            orderAlign.setStatus(7);
+                            kaiLeShiOrderRefundAlignMapper.update(orderAlign);
                             log.error("处理单个订单失败 outTid: {}", orderAlign.getOutRefundId(), e);
                         }
                     }, executor))
@@ -355,6 +357,8 @@ public class KaiLeShiRefundOrderAlignController {
                             }
                             kaiLeShiOrderRefundAlignMapper.update(orderAlign);
                         } catch (Exception e) {
+                            orderAlign.setStatus(7);
+                            kaiLeShiOrderRefundAlignMapper.update(orderAlign);
                             log.error("处理单个订单失败 outTid: {}", orderAlign.getOutRefundId(), e);
                         }
                     }, executor))
@@ -452,6 +456,8 @@ public class KaiLeShiRefundOrderAlignController {
                             orderAlign.setStatus(STATUS_DETAIL_QUERIED);
                             kaiLeShiOrderRefundAlignMapper.update(orderAlign);
                         } catch (Exception e) {
+                            orderAlign.setStatus(7);
+                            kaiLeShiOrderRefundAlignMapper.update(orderAlign);
                             log.error("处理单个订单失败 outRefundId: {}", orderAlign.getOutRefundId(), e);
                         }
                     }, executor))
@@ -800,6 +806,8 @@ public class KaiLeShiRefundOrderAlignController {
                                 kaiLeShiOrderRefundAlignMapper.update(orderAlign);
                             }
                         } catch (Exception e) {
+                            orderAlign.setStatus(7);
+                            kaiLeShiOrderRefundAlignMapper.update(orderAlign);
                             log.error("处理单个订单失败 outRefundId: {}", orderAlign.getOutRefundId(), e);
                         }
                     }, executor))

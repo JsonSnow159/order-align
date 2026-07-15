@@ -32,6 +32,7 @@ import com.youzan.cloud.connector.sdk.infra.dal.mapper.InfraShoppingGuideRelatio
 import com.youzan.cloud.connector.sdk.infra.dal.mapper.InfraUserRelationMapper;
 import com.youzan.cloud.connector.sdk.infra.dal.mapper.ShopRelationMapper;
 import com.youzan.cloud.open.sdk.gen.v1_0_1.model.YouzanScrmCustomerDetailGetResult;
+import com.google.common.util.concurrent.RateLimiter;
 import com.youzan.cloud.open.sdk.gen.v4_0_1.model.YouzanTradeGetResult;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -86,11 +87,14 @@ public class KaiLeShiOrderAlignController {
     private RedissonClient redissonClient;
     private static final String API_URL = "https://api-ekailas.kylin.shuyun.com/omni-api/v1/youzan/member/order/page";
     private static final String API_CHANNEL_URL = "https://api-ekailas.kylin.shuyun.com/omni-api/v1/youzan/member/query";
+    private static final String API_MEMBER_QUERY_URL = "https://api-ekailas.kylin.shuyun.com/omni-api/v1/youzan/member/getMemberInfo";
     static OkHttpClient client = new OkHttpClient.Builder()
             .connectTimeout(50, TimeUnit.SECONDS)    // 连接超时
             .readTimeout(50, TimeUnit.SECONDS)       // 读取超时
             .writeTimeout(50, TimeUnit.SECONDS)      // 写入超时
             .build();
+
+    private static final RateLimiter rateLimiter = RateLimiter.create(10.0);
 
     private static final ExecutorService executor = new ThreadPoolExecutor(
             10,
@@ -458,6 +462,8 @@ public class KaiLeShiOrderAlignController {
                             orderAlign.setType("正常订单");
                             kaiLeShiOrderAlignMapper.update(orderAlign);
                         } catch (Exception e) {
+                            orderAlign.setStatus(7);
+                            kaiLeShiOrderAlignMapper.update(orderAlign);
                             log.error("处理单个订单失败 outTid: {}", orderAlign.getOutTid(), e);
                         }
                     }, executor))
@@ -515,6 +521,8 @@ public class KaiLeShiOrderAlignController {
                             }
                             kaiLeShiOrderAlignMapper.update(orderAlign);
                         } catch (Exception e) {
+                            orderAlign.setStatus(7);
+                            kaiLeShiOrderAlignMapper.update(orderAlign);
                             log.error("处理单个订单失败 outTid: {}", orderAlign.getOutTid(), e);
                         }
                     }, executor))
@@ -577,6 +585,7 @@ public class KaiLeShiOrderAlignController {
                             youzanOrderDetail.setTid(tid);
 
                             if (StringUtils.isNotBlank(tid)) {
+                                rateLimiter.acquire();
                                 String detailStr = queryDetail(tid);
                                 YouzanTradeGetResult youzanTradeGetResult = JSON.parseObject(detailStr, YouzanTradeGetResult.class);
                                 if (!youzanTradeGetResult.getSuccess() || Objects.isNull(youzanTradeGetResult.getData())) {
@@ -787,23 +796,33 @@ public class KaiLeShiOrderAlignController {
                             if (StringUtils.isNotBlank(yzOrderDetail.getMobile())) {
                                 String yzOpenIdQueryStr = queryYzOpenId(yzOrderDetail.getMobile());
                                 YouzanScrmCustomerDetailGetResult customerDetailGetResult = JSON.parseObject(yzOpenIdQueryStr, YouzanScrmCustomerDetailGetResult.class);
-                                String newestYzOpenId = customerDetailGetResult.getData().getYzOpenId();
-                                if (!Objects.equals(yzOrderDetail.getYzOpenId(), newestYzOpenId)) {
-                                    //产生了换绑
-                                    result.setMemberIdResult("true");
+                                if (customerDetailGetResult != null && customerDetailGetResult.getSuccess() && customerDetailGetResult.getData() != null) {
+                                    String newestYzOpenId = customerDetailGetResult.getData().getYzOpenId();
+                                    if (!Objects.equals(yzOrderDetail.getYzOpenId(), newestYzOpenId)) {
+                                        //产生了换绑
+                                        result.setMemberIdResult("true");
+                                    }
                                 }
                             } else {
                                 if (StringUtils.isNotBlank(yzOrderDetail.getYzOpenId())) {
                                     String yzOpenIdQueryStr = queryBzYzOpenId(yzOrderDetail.getYzOpenId());
                                     YouzanScrmCustomerDetailGetResult customerDetailGetResult = JSON.parseObject(yzOpenIdQueryStr, YouzanScrmCustomerDetailGetResult.class);
-                                    if (Objects.isNull(customerDetailGetResult.getData())) {
+                                    if (Objects.isNull(customerDetailGetResult.getData())
+                                            || StringUtils.isBlank(customerDetailGetResult.getData().getMobile())
+                                            || !Objects.equals(yzOrderDetail.getYzOpenId(), customerDetailGetResult.getData().getYzOpenId())
+                                    ) {
                                         //产生了注销
                                         result.setMemberIdResult("true");
                                     }
                                 }
                             }
                             if (!Objects.equals(result.getMemberIdResult(), "true")) {
-                                UserRelationDO userRelation = infraUserRelationMapper.getByYzOpenId(appId, rootKdtId, yzOrderDetail.getYzOpenId());
+                                String userRelationStr = queryUserRelation(yzOrderDetail.getYzOpenId());
+                                UserRelationDO userRelation = null;
+                                if(StringUtils.isNotBlank(userRelationStr)) {
+                                    userRelation = JSON.parseObject(userRelationStr, UserRelationDO.class);
+                                }
+//                              UserRelationDO userRelation = infraUserRelationMapper.getByYzOpenId(appId, rootKdtId, yzOrderDetail.getYzOpenId());
                                 if (Objects.nonNull(userRelation)) {
                                     String outOpenId = userRelation.getOutOpenId();
                                     result.setOutOpenId(outOpenId);
@@ -860,8 +879,21 @@ public class KaiLeShiOrderAlignController {
 
                             // Channel alignment
                             result.setYzChannel(yzOrderDetail.getChannel());
-                            JSONObject jsonObject = JSON.parseObject(yzOrderDetail.getChannel());
-                            String channelStr = jsonObject.getJSONObject("tradeChannel").getString("commonChannel");
+                            String channelStr = "";
+                            if (StringUtils.isNotBlank(yzOrderDetail.getChannel())) {
+                                try {
+                                    JSONObject jsonObject = JSON.parseObject(yzOrderDetail.getChannel());
+                                    if (jsonObject != null && jsonObject.getJSONObject("tradeChannel") != null) {
+                                        channelStr = jsonObject.getJSONObject("tradeChannel").getString("commonChannel");
+                                    }
+                                } catch (Exception e) {
+                                    log.warn("解析有赞渠道JSON失败: {}", yzOrderDetail.getChannel(), e);
+                                    channelStr = yzOrderDetail.getChannel();
+                                }
+                            }
+                            if (channelStr == null) {
+                                channelStr = "";
+                            }
                             String finalChannelStr = "";
                             switch (channelStr) {
                                 case "Taobao":
@@ -931,16 +963,8 @@ public class KaiLeShiOrderAlignController {
                                 //转换69码
                                 String outSkuNo = outOrder.getSkuNo();
                                 if (StringUtils.isNotBlank(outSkuNo)) {
-                                    RBucket<String> skuCodeBucket = redissonClient.getBucket(outSkuNo);
-                                    String skuCode = skuCodeBucket.get();
-                                    if (StringUtils.isBlank(skuCode)) {
-                                        String eanCode = queryEanCode(outItemNo, outSkuNo);
-                                        skuCode = parseEanCode(eanCode, outSkuNo);
-                                        skuCodeBucket.set(skuCode, 2, TimeUnit.DAYS);
-                                        outSkuNo = skuCode;
-                                    } else {
-                                        outSkuNo = skuCode;
-                                    }
+                                    String eanCode = queryEanCode(outItemNo, outSkuNo);
+                                    outSkuNo = parseEanCode(eanCode, outSkuNo);
                                 }
 
                                 String yzOutOid = outOrder.getOutOid();
@@ -1164,6 +1188,8 @@ public class KaiLeShiOrderAlignController {
                             kaiLeShiOrderAlignMapper.update(orderAlign);
 
                         } catch (Exception e) {
+                            orderAlign.setStatus(7);
+                            kaiLeShiOrderAlignMapper.update(orderAlign);
                             log.error("处理单个订单失败 outTid: {}", orderAlign.getOutTid(), e);
                         }
                     }, executor))
@@ -1184,7 +1210,7 @@ public class KaiLeShiOrderAlignController {
         MediaType mediaType = MediaType.parse("application/json");
         okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\"fields\":\"user_base\",\"is_do_ext_point\":false,\"yz_open_id\":\"%s\"}", yzOpenId));
         Request request = new Request.Builder()
-                .url("https://open.youzanyun.com/api/youzan.scrm.customer.detail.get/1.0.1?access_token=b28cffbb3645709761834b9c83427ee")
+                .url("https://open.youzanyun.com/api/youzan.scrm.customer.detail.get/1.0.1?access_token=070322216654c5d01063306c61f5ce4")
                 .method("POST", body)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Cookie", "acw_tc=92a8083254e69a13319c5b46cd8c54db382a5c7ff40aa5e976b0d9f6f8f7f0b4")
@@ -1198,7 +1224,7 @@ public class KaiLeShiOrderAlignController {
         MediaType mediaType = MediaType.parse("application/json");
         okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\n    \"request\":{\n        \"mobile\":\"%s\"\n    }\n}", outGuideCode));
         Request request = new Request.Builder()
-                .url("https://open.youzanyun.com/api/youzan.guide.shoppingguide.get/2.0.0?access_token=b28cffbb3645709761834b9c83427ee")
+                .url("https://open.youzanyun.com/api/youzan.guide.shoppingguide.get/2.0.0?access_token=070322216654c5d01063306c61f5ce4")
                 .method("POST", body)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Cookie", "acw_tc=ed13b12cd2861c0621c347c5a26b42b19c736213fa37cdb51cde5aebf9257ba3")
@@ -1235,11 +1261,27 @@ public class KaiLeShiOrderAlignController {
         return responseStr;
     }
 
+    public static String queryUserRelation(String yzOpenId) throws IOException {
+        MediaType mediaType = MediaType.parse("application/json");
+        okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\n    \"kdtId\":42243307,\n    \"appId\":\"42243307_kylin\",\n    \"yzOpenId\":\"%s\"\n}",yzOpenId));
+        Request request = new Request.Builder()
+                .url("https://youzanyun-connector-kylin.isv.youzan.com/kaileshi/query/userRelation")
+                .method("POST", body)
+                .addHeader("Content-Type", "application/json")
+                .addHeader("Cookie", "KDTSESSIONID=fedj960ku1idvk2so0s86of5g2; kdt_id=142628548; acw_tc=0a81803517824589170717569e2acb738fd7529ce5f66213845cda39ea0e66")
+                .build();
+        Response response = client.newCall(request).execute();
+        String responseStr = response.body().string();
+        return responseStr;
+    }
+
+
+
     public static String queryDetail(String tid) throws IOException {
         MediaType mediaType = MediaType.parse("application/json");
         okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\"tid\":\"%s\"}", tid));
         Request request = new Request.Builder()
-                .url("https://open.youzanyun.com/api/youzan.trade.get/4.0.2?access_token=b28cffbb3645709761834b9c83427ee")
+                .url("https://open.youzanyun.com/api/youzan.trade.get/4.0.2?access_token=070322216654c5d01063306c61f5ce4")
                 .method("POST", body)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Cookie", "acw_tc=064c13bee4b4da2a4c388a22d53d56e15eaacc2d04ef5b64685587cc076b0b4c")
@@ -1253,7 +1295,7 @@ public class KaiLeShiOrderAlignController {
         MediaType mediaType = MediaType.parse("application/json");
         okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\"fields\":\"user_base\",\"is_do_ext_point\":false,\"account_info\":{\"account_id\":\"%s\",\"account_type\":2}}", mobile));
         Request request = new Request.Builder()
-                .url("https://open.youzanyun.com/api/youzan.scrm.customer.detail.get/1.0.1?access_token=b28cffbb3645709761834b9c83427ee")
+                .url("https://open.youzanyun.com/api/youzan.scrm.customer.detail.get/1.0.1?access_token=070322216654c5d01063306c61f5ce4")
                 .method("POST", body)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Cookie", "acw_tc=92a8083254e69a13319c5b46cd8c54db382a5c7ff40aa5e976b0d9f6f8f7f0b4")
@@ -1311,7 +1353,7 @@ public class KaiLeShiOrderAlignController {
         Response response = client.newCall(request).execute();
         String responseStr = response.body().string();
         JSONObject jsonObject = JSON.parseObject(responseStr);
-        if (Objects.nonNull(jsonObject) && jsonObject.getJSONArray("data").size() > 0) {
+        if (Objects.nonNull(jsonObject) && jsonObject.getJSONArray("data") != null && jsonObject.getJSONArray("data").size() > 0) {
             return jsonObject.getJSONArray("data").getJSONObject(0).getString("eanCode");
         }
         return "";
@@ -1360,7 +1402,7 @@ public class KaiLeShiOrderAlignController {
         String serviceSecret = "gdis22kslllk2";
 
         String url = String.format("%s?memberType=kailas&memberId=%s&pageNo=1&pageSize=50",
-                API_URL, mobile);
+                API_MEMBER_QUERY_URL, mobile);
 
         Request request = new Request.Builder()
                 .url(url)

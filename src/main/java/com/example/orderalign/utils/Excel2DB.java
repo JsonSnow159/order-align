@@ -16,7 +16,7 @@ import java.util.Map;
 
 public class Excel2DB {
 
-    private static final String UPLOAD_URL = "http://localhost:8091/kaileshi/uploadOrder";
+    private static final String UPLOAD_URL = "http://localhost:8092/kaileshi/uploadOrder";
     private static final RestTemplate restTemplate = new RestTemplate();
     private static final int BATCH_SIZE = 500;
 
@@ -25,7 +25,7 @@ public class Excel2DB {
      * @param args Command line arguments. Expects one argument: the path to the directory containing Excel files.
      */
     public static void main(String[] args) {
-        String directoryPath = "/Users/app/Downloads/凯乐石相关/全量订单号";
+        String directoryPath = "/Users/jincaiwu/Downloads/凯乐石订单待对账/6月订单.xlsx";
         System.out.println("Starting to process files from: " + directoryPath);
         readFromExcelAndUpload(directoryPath);
         System.out.println("Finished processing all files.");
@@ -33,12 +33,14 @@ public class Excel2DB {
 
     public static void readFromExcelAndUpload(String directoryPath) {
         File folder = new File(directoryPath);
-        File[] files = folder.listFiles((dir, name) -> name.toLowerCase().endsWith(".xlsx") || name.toLowerCase().endsWith(".xls"));
-
-        if (files == null || files.length == 0) {
-            System.out.println("The specified path is not a directory or contains no Excel files.");
-            return;
-        }
+        File[] files = new File[1];
+        files[0] = folder;
+//        File[] files = folder.listFiles((dir, name) -> name.toLowerCase().endsWith(".xlsx") || name.toLowerCase().endsWith(".xls"));
+//
+//        if (files == null || files.length == 0) {
+//            System.out.println("The specified path is not a directory or contains no Excel files.");
+//            return;
+//        }
 
         List<String> outTidBatch = new ArrayList<>();
 
