@@ -57,6 +57,11 @@
         </dependency>
         <dependency>
             <groupId>com.youzan</groupId>
+            <artifactId>cloud-connector-sdk-client</artifactId>
+            <version>2.7.20-RELEASE</version>
+        </dependency>
+        <dependency>
+            <groupId>com.youzan</groupId>
             <artifactId>cloud-connector-sdk-infra</artifactId>
             <version>2.7.20-RELEASE</version>
         </dependency>

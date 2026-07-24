@@ -37,6 +37,14 @@ public interface KaiLeShiOrderAlignMapper {
     List<KaiLeShiOrderAlign> selectByStatusWithLimit(@Param("status") Integer status, @Param("limit") int limit);
 
     /**
+     * 查询指定应用下尚未同步三方订单状态的订单
+     */
+    List<KaiLeShiOrderAlign> selectOrderStatusPending(@Param("appId") String appId,
+                                                      @Param("status") Integer status,
+                                                      @Param("lastId") Long lastId,
+                                                      @Param("limit") int limit);
+
+    /**
      * 更新
      * @param record
      * @return

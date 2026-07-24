@@ -63,4 +63,9 @@
         where app_id = #{appId} and out_tid = #{outTid,jdbcType=VARCHAR}
     </select>
 
+    <delete id="deleteByOutTid">
+        delete from third_party_order_detail
+        where app_id = #{appId} and out_tid = #{outTid,jdbcType=VARCHAR}
+    </delete>
+
 </mapper>

@@ -40,9 +40,17 @@ public interface YouzanOrderDetailMapper {
     int deleteByPrimaryKey(Long id);
 
     /**
-     * 根据tid查询
-     * @param tid
+     * 根据tid删除
      * @param appId
+     * @param tid
+     * @return
+     */
+    int deleteByTid(@Param("appId") String appId, @Param("tid") String tid);
+
+    /**
+     * 根据tid查询
+     * @param appId
+     * @param tid
      * @return
      */
     YouzanOrderDetail selectByTid(@Param("appId") String appId, @Param("tid") String tid);

@@ -11,7 +11,7 @@ import com.example.orderalign.mapper.KaiLeShiOrderAlignMapper;
 import com.example.orderalign.model.KaiLeShiOrderAlign;
 import com.example.orderalign.mapper.KlsOrderMapper;
 import com.example.orderalign.model.KlsOrder;
-import org.apache.commons.collections.CollectionUtils;
+import org.springframework.util.CollectionUtils;
 import java.util.ArrayList;
 
 import javax.annotation.PreDestroy;
@@ -88,7 +88,7 @@ public class KaiLeShiDataFixController {
 
             isFixRunning.set(true);
             isFixTaskRunning = true;
-            mainLoopExecutor.submit(this::runFixLoop);
+            mainLoopExecutor.execute(this::runFixLoop);
             String message = "Continuous data fix process started (with parallel steps).";
             log.info(message);
             return message;
@@ -144,7 +144,7 @@ public class KaiLeShiDataFixController {
 
             isMigrationRunning.set(true);
             isMigrationTaskRunning = true;
-            migrationExecutor.submit(this::runMigrationLoop);
+            migrationExecutor.execute(this::runMigrationLoop);
             String message = "Migration process from kls_order to kaileshi_order_align started in the background.";
             log.info(message);
             return message;
@@ -236,6 +236,8 @@ public class KaiLeShiDataFixController {
                     break;
                 }
             }
+        } catch (Throwable t) {
+            log.error("Fatal error in runMigrationLoop", t);
         } finally {
             synchronized (migrationLock) {
                 isMigrationTaskRunning = false;
@@ -265,7 +267,7 @@ public class KaiLeShiDataFixController {
                     List<Integer> activeStatuses = Arrays.asList(STATUS_PENDING, STATUS_OUT_DETAIL_QUERIED, STATUS_FOUND, STATUS_DETAIL_QUERIED);
                     for (int status : activeStatuses) {
                         List<KaiLeShiOrderAlign> list = kaiLeShiOrderAlignMapper.selectByStatusWithLimit(status, 1);
-                        if (CollectionUtils.isNotEmpty(list)) {
+                        if (!CollectionUtils.isEmpty(list)) {
                             hasData = true;
                             break;
                         }
@@ -319,6 +321,8 @@ public class KaiLeShiDataFixController {
                     }
                 }
             }
+        } catch (Throwable t) {
+            log.error("Fatal error in runFixLoop", t);
         } finally {
             synchronized (fixLock) {
                 isFixTaskRunning = false;

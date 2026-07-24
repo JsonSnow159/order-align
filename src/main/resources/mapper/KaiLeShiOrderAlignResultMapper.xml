@@ -175,6 +175,25 @@
         where app_id = #{appId} and out_tid = #{outTid}
     </select>
 
-
+    <select id="selectFailedResults" resultMap="BaseResultMap">
+        select * from (
+            select id, app_id, tid, out_tid, yz_create_time from kaileshi_order_align_result
+            where 
+                (COALESCE(sub_order_result,'') &lt;&gt; '子订单一致' 
+                OR COALESCE(create_time_result,'') &lt;&gt; 'true' 
+                OR COALESCE(pay_time_result,'') &lt;&gt; 'true' 
+                OR COALESCE(shop_result,'') &lt;&gt; 'true'
+                OR COALESCE(member_id_result,'') &lt;&gt; 'true' 
+                OR COALESCE(total_amount_result,'') &lt;&gt; 'true' 
+                OR COALESCE(discount_amount_result,'') &lt;&gt; 'true'
+                OR COALESCE(payment_result,'') &lt;&gt; 'true' 
+                OR COALESCE(channel_result,'') &lt;&gt; 'true'
+                OR is_mock_item_id ='true')
+                <if test="appId != null and appId != ''">
+                    and app_id = #{appId}
+                </if>
+            order by id asc
+        ) t1
+    </select>
 
 </mapper>

@@ -278,8 +278,64 @@ public class KaiLeShiOrderAlignController {
         return YzCloudResponse.success();
     }
 
+    @PostMapping("/reAlignOrder3")
+    public YzCloudResponse<Object> reAlignOrder3(@RequestBody OrderAlignDTO param) {
+        log.info("凯乐石订单重新对齐(根据失败SQL)param:{}", param);
+        try {
+            String appId = param.getAppId();
+            List<KaiLeShiOrderAlignResult> failedResults = kaiLeShiOrderAlignResultMapper.selectFailedResults(appId);
+            if (CollectionUtils.isEmpty(failedResults)) {
+                log.info("没有需要重新对齐的失败订单");
+                return YzCloudResponse.success("no failed orders found");
+            }
+
+            log.info("查询出需要重新对齐的失败订单数量: {}", failedResults.size());
+
+            for (KaiLeShiOrderAlignResult result : failedResults) {
+                String currentAppId = result.getAppId();
+                if (StringUtils.isBlank(currentAppId)) {
+                    currentAppId = appId;
+                }
+                if (StringUtils.isBlank(currentAppId)) {
+                    log.warn("appId为空，无法处理结果ID: {}, 跳过", result.getId());
+                    continue;
+                }
+
+                String tid = result.getTid();
+                String outTid = result.getOutTid();
+
+                if (StringUtils.isNotBlank(tid)) {
+                    int deletedYz = youzanOrderDetailMapper.deleteByTid(currentAppId, tid);
+                    log.info("删除 youzan_order_detail 数量: {}, tid: {}, appId: {}", deletedYz, tid, currentAppId);
+                }
+
+                if (StringUtils.isNotBlank(outTid)) {
+                    int deletedOut = thirdPartyOrderDetailMapper.deleteByOutTid(currentAppId, outTid);
+                    log.info("删除 third_party_order_detail 数量: {}, outTid: {}, appId: {}", deletedOut, outTid, currentAppId);
+
+                    KaiLeShiOrderAlign orderAlign = kaiLeShiOrderAlignMapper.selectByAppIdAndOutTid(currentAppId, outTid);
+                    if (Objects.nonNull(orderAlign)) {
+                        KaiLeShiOrderAlign updateLog = new KaiLeShiOrderAlign();
+                        updateLog.setId(orderAlign.getId());
+                        updateLog.setStatus(STATUS_PENDING);
+                        kaiLeShiOrderAlignMapper.update(updateLog);
+                        log.info("重置 kaileshi_order_align 状态为 0, outTid: {}, appId: {}", outTid, currentAppId);
+                    }
+                }
+                
+                kaiLeShiOrderAlignResultMapper.deleteByPrimaryKey(result.getId());
+                log.info("删除 kaileshi_order_align_result 记录, id: {}", result.getId());
+            }
+        } catch (Exception e) {
+            log.error("处理失败", e);
+            return YzCloudResponse.error(500, "处理失败:" + e.getMessage());
+        }
+        return YzCloudResponse.success();
+    }
+
     /**
      * 删除订单后，重新创建后对账
+
      * @param param
      * @return
      */
@@ -477,6 +533,59 @@ public class KaiLeShiOrderAlignController {
         }
         log.info("查询订单Detail任务结束");
         return YzCloudResponse.success();
+    }
+
+    /**
+     * 查询三方订单状态并回写 kaileshi_order_align.order_status。
+     */
+    @PostMapping("/orderStatusQuery")
+    public YzCloudResponse<Object> orderStatusQuery(@RequestBody OrderAlignDTO param) {
+        String appId = param.getAppId();
+        if (StringUtils.isBlank(appId)) {
+            return YzCloudResponse.error(400, "appId is required");
+        }
+
+        int successCount = 0;
+        int totalCount = 0;
+        long lastId = 0L;
+        while (true) {
+            List<KaiLeShiOrderAlign> orders = kaiLeShiOrderAlignMapper.selectOrderStatusPending(
+                    appId, 2, lastId, BATCH_SIZE);
+            if (CollectionUtils.isEmpty(orders)) {
+                break;
+            }
+
+            for (KaiLeShiOrderAlign order : orders) {
+                lastId = order.getId();
+                totalCount++;
+                try {
+                    String response = kylinOrderDetailQuery(order.getOutTid());
+                    JSONArray data = JSON.parseObject(response).getJSONArray("data");
+                    if (data == null || data.isEmpty()) {
+                        log.warn("未查询到三方订单状态, outTid: {}", order.getOutTid());
+                        continue;
+                    }
+
+                    KaileshiOrderQueryResponseDTO detail = data.getObject(0, KaileshiOrderQueryResponseDTO.class);
+                    if (detail == null || StringUtils.isBlank(detail.getOrderStatus())) {
+                        log.warn("三方订单状态为空, outTid: {}", order.getOutTid());
+                        continue;
+                    }
+
+                    KaiLeShiOrderAlign update = new KaiLeShiOrderAlign();
+                    update.setId(order.getId());
+                    update.setOrderStatus(detail.getOrderStatus());
+                    kaiLeShiOrderAlignMapper.update(update);
+                    successCount++;
+                } catch (Exception e) {
+                    log.error("查询三方订单状态失败, outTid: {}", order.getOutTid(), e);
+                }
+            }
+            log.info("三方订单状态分页处理完成, lastId: {}, 本页数量: {}, 累计处理: {}",
+                    lastId, orders.size(), totalCount);
+        }
+
+        return YzCloudResponse.success(String.format("处理完成，成功更新%d条，共处理%d条", successCount, totalCount));
     }
 
     @SneakyThrows
@@ -796,6 +905,9 @@ public class KaiLeShiOrderAlignController {
                             if (StringUtils.isNotBlank(yzOrderDetail.getMobile())) {
                                 String yzOpenIdQueryStr = queryYzOpenId(yzOrderDetail.getMobile());
                                 YouzanScrmCustomerDetailGetResult customerDetailGetResult = JSON.parseObject(yzOpenIdQueryStr, YouzanScrmCustomerDetailGetResult.class);
+                                if (customerDetailGetResult == null || customerDetailGetResult.getData() == null) {
+                                    result.setMemberIdResult("true");
+                                }
                                 if (customerDetailGetResult != null && customerDetailGetResult.getSuccess() && customerDetailGetResult.getData() != null) {
                                     String newestYzOpenId = customerDetailGetResult.getData().getYzOpenId();
                                     if (!Objects.equals(yzOrderDetail.getYzOpenId(), newestYzOpenId)) {
@@ -1188,9 +1300,30 @@ public class KaiLeShiOrderAlignController {
                             kaiLeShiOrderAlignMapper.update(orderAlign);
 
                         } catch (Exception e) {
-                            orderAlign.setStatus(7);
-                            kaiLeShiOrderAlignMapper.update(orderAlign);
-                            log.error("处理单个订单失败 outTid: {}", orderAlign.getOutTid(), e);
+                            if (e.getMessage() != null && e.getMessage().contains("TooManyResultsException")) {
+                                log.warn("查询到多条重复的订单详情记录, 重置并删除详情. outTid: {}", orderAlign.getOutTid(), e);
+                                try {
+                                    String targetTid = orderAlign.getTid();
+                                    String targetOutTid = orderAlign.getOutTid();
+                                    if (StringUtils.isNotBlank(targetTid)) {
+                                        youzanOrderDetailMapper.deleteByTid(appId, targetTid);
+                                    }
+                                    if (StringUtils.isNotBlank(targetOutTid)) {
+                                        thirdPartyOrderDetailMapper.deleteByOutTid(appId, targetOutTid);
+                                    }
+                                    orderAlign.setStatus(STATUS_PENDING);
+                                    kaiLeShiOrderAlignMapper.update(orderAlign);
+                                    log.info("重置订单状态为0成功. outTid: {}", targetOutTid);
+                                } catch (Exception ex) {
+                                    log.error("重置多条记录订单失败. outTid: {}", orderAlign.getOutTid(), ex);
+                                    orderAlign.setStatus(7);
+                                    kaiLeShiOrderAlignMapper.update(orderAlign);
+                                }
+                            } else {
+                                orderAlign.setStatus(7);
+                                kaiLeShiOrderAlignMapper.update(orderAlign);
+                                log.error("处理单个订单失败 outTid: {}", orderAlign.getOutTid(), e);
+                            }
                         }
                     }, executor))
                     .collect(Collectors.toList());
@@ -1210,7 +1343,7 @@ public class KaiLeShiOrderAlignController {
         MediaType mediaType = MediaType.parse("application/json");
         okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\"fields\":\"user_base\",\"is_do_ext_point\":false,\"yz_open_id\":\"%s\"}", yzOpenId));
         Request request = new Request.Builder()
-                .url("https://open.youzanyun.com/api/youzan.scrm.customer.detail.get/1.0.1?access_token=070322216654c5d01063306c61f5ce4")
+                .url("https://open.youzanyun.com/api/youzan.scrm.customer.detail.get/1.0.1?access_token=55201ee2c59cd4e87e60f91c8fd9c74")
                 .method("POST", body)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Cookie", "acw_tc=92a8083254e69a13319c5b46cd8c54db382a5c7ff40aa5e976b0d9f6f8f7f0b4")
@@ -1224,7 +1357,7 @@ public class KaiLeShiOrderAlignController {
         MediaType mediaType = MediaType.parse("application/json");
         okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\n    \"request\":{\n        \"mobile\":\"%s\"\n    }\n}", outGuideCode));
         Request request = new Request.Builder()
-                .url("https://open.youzanyun.com/api/youzan.guide.shoppingguide.get/2.0.0?access_token=070322216654c5d01063306c61f5ce4")
+                .url("https://open.youzanyun.com/api/youzan.guide.shoppingguide.get/2.0.0?access_token=55201ee2c59cd4e87e60f91c8fd9c74")
                 .method("POST", body)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Cookie", "acw_tc=ed13b12cd2861c0621c347c5a26b42b19c736213fa37cdb51cde5aebf9257ba3")
@@ -1281,7 +1414,7 @@ public class KaiLeShiOrderAlignController {
         MediaType mediaType = MediaType.parse("application/json");
         okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\"tid\":\"%s\"}", tid));
         Request request = new Request.Builder()
-                .url("https://open.youzanyun.com/api/youzan.trade.get/4.0.2?access_token=070322216654c5d01063306c61f5ce4")
+                .url("https://open.youzanyun.com/api/youzan.trade.get/4.0.2?access_token=55201ee2c59cd4e87e60f91c8fd9c74")
                 .method("POST", body)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Cookie", "acw_tc=064c13bee4b4da2a4c388a22d53d56e15eaacc2d04ef5b64685587cc076b0b4c")
@@ -1295,7 +1428,7 @@ public class KaiLeShiOrderAlignController {
         MediaType mediaType = MediaType.parse("application/json");
         okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, String.format("{\"fields\":\"user_base\",\"is_do_ext_point\":false,\"account_info\":{\"account_id\":\"%s\",\"account_type\":2}}", mobile));
         Request request = new Request.Builder()
-                .url("https://open.youzanyun.com/api/youzan.scrm.customer.detail.get/1.0.1?access_token=070322216654c5d01063306c61f5ce4")
+                .url("https://open.youzanyun.com/api/youzan.scrm.customer.detail.get/1.0.1?access_token=55201ee2c59cd4e87e60f91c8fd9c74")
                 .method("POST", body)
                 .addHeader("Content-Type", "application/json")
                 .addHeader("Cookie", "acw_tc=92a8083254e69a13319c5b46cd8c54db382a5c7ff40aa5e976b0d9f6f8f7f0b4")
@@ -1311,8 +1444,9 @@ public class KaiLeShiOrderAlignController {
         String callService = "omni-api";
         String contextPath = "omni-api";
         String serviceSecret = "gdis22kslllk2";
+        String encodedOutTid = java.net.URLEncoder.encode(outTid, "UTF-8");
         String url = String.format("%s?memberType=kailas&orderBeginTime=%s&orderEndTime=%s&pageNo=1&pageSize=20&orderId=%s",
-                API_URL, "2010-11-18 03:00:00".replace(" ", "%20"), "2026-11-18 04:00:00".replace(" ", "%20"), outTid);
+                API_URL, "2010-11-18 03:00:00".replace(" ", "%20"), "2026-11-18 04:00:00".replace(" ", "%20"), encodedOutTid);
 
         Request request = new Request.Builder()
                 .url(url)

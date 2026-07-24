@@ -49,4 +49,5 @@ public interface KaiLeShiOrderAlignResultMapper {
      */
     KaiLeShiOrderAlignResult selectByTid(@Param("appId") String appId, @Param("tid") String tid);
     List<KaiLeShiOrderAlignResult> selectByOutTid(@Param("appId") String appId, @Param("outTid") String outTid);
+    List<KaiLeShiOrderAlignResult> selectFailedResults(@Param("appId") String appId);
 }

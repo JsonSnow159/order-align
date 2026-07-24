@@ -63,4 +63,9 @@
         where app_id = #{appId,jdbcType=VARCHAR} and tid = #{tid,jdbcType=VARCHAR}
     </select>
 
+    <delete id="deleteByTid">
+        delete from youzan_order_detail
+        where app_id = #{appId,jdbcType=VARCHAR} and tid = #{tid,jdbcType=VARCHAR}
+    </delete>
+
 </mapper>

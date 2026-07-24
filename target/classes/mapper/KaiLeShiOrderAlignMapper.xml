@@ -7,6 +7,7 @@
         <result column="app_id" property="appId" jdbcType="VARCHAR"/>
         <result column="tid" property="tid" jdbcType="VARCHAR"/>
         <result column="out_tid" property="outTid" jdbcType="VARCHAR"/>
+        <result column="order_status" property="orderStatus" jdbcType="VARCHAR"/>
         <result column="status" property="status" jdbcType="INTEGER"/>
         <result column="type" property="type" jdbcType="VARCHAR"/>
         <result column="created_at" property="createdAt" jdbcType="TIMESTAMP"/>
@@ -14,7 +15,7 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, kdt_id, app_id, tid, out_tid, status, type, created_at, updated_at
+        id, kdt_id, app_id, tid, out_tid, order_status, status, type, created_at, updated_at
     </sql>
 
     <insert id="insert" parameterType="com.example.orderalign.model.KaiLeShiOrderAlign">
@@ -37,6 +38,18 @@
         limit #{limit,jdbcType=INTEGER}
     </select>
 
+    <select id="selectOrderStatusPending" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from kaileshi_order_align
+        where app_id = #{appId,jdbcType=VARCHAR}
+          and status = #{status,jdbcType=INTEGER}
+          and order_status is null
+          and id &gt; #{lastId,jdbcType=BIGINT}
+        order by id asc
+        limit #{limit,jdbcType=INTEGER}
+    </select>
+
     <update id="update" parameterType="com.example.orderalign.model.KaiLeShiOrderAlign">
         update kaileshi_order_align
         <set>
@@ -51,6 +64,9 @@
             </if>
             <if test="outTid != null">
                 out_tid = #{outTid,jdbcType=VARCHAR},
+            </if>
+            <if test="orderStatus != null">
+                order_status = #{orderStatus,jdbcType=VARCHAR},
             </if>
             <if test="status != null">
                 status = #{status,jdbcType=INTEGER},

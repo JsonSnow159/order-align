@@ -33,6 +33,7 @@ CREATE TABLE `kaileshi_order_align` (
   `app_id` varchar(255) DEFAULT NULL COMMENT 'app id',
   `tid` varchar(255) DEFAULT NULL COMMENT '有赞订单id',
   `out_tid` varchar(255) DEFAULT NULL COMMENT '外部订单id',
+  `order_status` varchar(64) DEFAULT NULL COMMENT '三方订单状态',
   `status` int(11) DEFAULT NULL COMMENT '推送状态，0-待查询三方详情，1-已对齐有赞映射，2-对齐失败，3-已查询全部详情，4-详情查询失败，5-已查询三方详情，待查询有赞详情,7-插入DB失败',
   `type` varchar(255) DEFAULT NULL COMMENT '正常订单 正常退单 正向退单：正向单里面产生的退款单，退款数量、金额为负数，退单中需要取绝对值 逆向订单：逆向单里面产生的正向单，退款数量、金额为负数，订单中需要取绝对值',
   `created_at` timestamp NULL DEFAULT NULL COMMENT '创建时间',
