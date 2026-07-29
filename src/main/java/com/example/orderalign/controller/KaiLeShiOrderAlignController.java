@@ -903,17 +903,13 @@ public class KaiLeShiOrderAlignController {
 
                             //有赞id先检验，是否有效
                             if (StringUtils.isNotBlank(yzOrderDetail.getMobile())) {
-                                String yzOpenIdQueryStr = queryYzOpenId(yzOrderDetail.getMobile());
-                                YouzanScrmCustomerDetailGetResult customerDetailGetResult = JSON.parseObject(yzOpenIdQueryStr, YouzanScrmCustomerDetailGetResult.class);
-                                if (customerDetailGetResult == null || customerDetailGetResult.getData() == null) {
+                                String yzOpenIdQueryStr = queryYzOpenId2(yzOrderDetail.getMobile());
+                                if (yzOpenIdQueryStr.length() > 50) {
                                     result.setMemberIdResult("true");
                                 }
-                                if (customerDetailGetResult != null && customerDetailGetResult.getSuccess() && customerDetailGetResult.getData() != null) {
-                                    String newestYzOpenId = customerDetailGetResult.getData().getYzOpenId();
-                                    if (!Objects.equals(yzOrderDetail.getYzOpenId(), newestYzOpenId)) {
-                                        //产生了换绑
-                                        result.setMemberIdResult("true");
-                                    }
+                                if (!Objects.equals(yzOrderDetail.getYzOpenId(), yzOpenIdQueryStr)) {
+                                    //产生了换绑
+                                    result.setMemberIdResult("true");
                                 }
                             } else {
                                 if (StringUtils.isNotBlank(yzOrderDetail.getYzOpenId())) {
@@ -1436,6 +1432,31 @@ public class KaiLeShiOrderAlignController {
         Response response = client.newCall(request).execute();
         String responseStr = response.body().string();
         return responseStr;
+    }
+
+    private static String queryYzOpenId2(String mobile) throws IOException {
+        MediaType mediaType = MediaType.parse("text/plain");
+        okhttp3.RequestBody body = okhttp3.RequestBody.create(mediaType, "");
+        Request request = new Request.Builder()
+                .url(String.format("https://cloud-connector-test-tools.qa.qima-inc.com/user/yzOpenidByMobile?mobile=%s",mobile))
+                .method("GET", null)
+                .addHeader("Accept-Language", "zh-CN,zh;q=0.9")
+                .addHeader("Connection", "keep-alive")
+                .addHeader("Cookie", "yz_log_uuid=b6b95e57-7ea6-eeee-d292-469a9ed46dfe; yz_log_ftime=1782096780275; loc_dfp=dbe01a4da268e1d4a66872ba1d47dc98; dfp=6327429b14b15716718b90420bed420a; KDTSESSIONID=YZ1529805189412519936YZxyKxnDnf; XIAOLV_SESSION_ID_prod=NmBIRzbVuinENWBkOxHZkjd4uTI5I7FnoC1FLLbe; cas_username=cloud_wujincai; access_user=13259_1; token=\"{\\\"id\\\": 13259\\054 \\\"username\\\": \\\"cloud_wujincai\\\"\\054 \\\"gender\\\": false\\054 \\\"realname\\\": \\\"\\\\u5434\\\\u91d1\\\\u624d\\\"\\054 \\\"aliasname\\\": \\\"\\\\u554a\\\\u624d\\\"\\054 \\\"mobile\\\": \\\"18379917413\\\"\\054 \\\"email\\\": \\\"cloud_wujincai@youzan.com\\\"}\"; JANUS_CAS_SESSION_JANUS_OFFICE_PROD=gNC-WJQalEAwOB-OVcRL_cnw0lYJi6FNmi_CEcv-lP0; yz_log_seqn=11")
+                .addHeader("Referer", "https://cloud-connector-test-tools.qa.qima-inc.com/")
+                .addHeader("Sec-Fetch-Dest", "empty")
+                .addHeader("Sec-Fetch-Mode", "cors")
+                .addHeader("Sec-Fetch-Site", "same-origin")
+                .addHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
+                .addHeader("accept", "application/json")
+                .addHeader("sec-ch-ua", "\"Google Chrome\";v=\"123\", \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"123\"")
+                .addHeader("sec-ch-ua-mobile", "?0")
+                .addHeader("sec-ch-ua-platform", "\"macOS\"")
+                .build();
+        Response response = client.newCall(request).execute();
+        String string = response.body().string();
+        string = string.replaceAll("\"","");
+        return string;
     }
 
 
